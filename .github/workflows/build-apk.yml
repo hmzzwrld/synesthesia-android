@@ -18,11 +18,8 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Install Android Build Tools
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libc6 lib32stdc++6 lib32z1 libgcc1
-        echo "y" | sudo apt-get install -y android-sdk
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
 
     - name: Build Debug APK with Gradle
       run: |
