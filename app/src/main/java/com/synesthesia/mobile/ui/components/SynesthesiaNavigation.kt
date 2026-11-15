@@ -53,13 +53,11 @@ fun DynamicIslandMiniPlayer(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Track Info
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.weight(1f),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Mini Artwork placeholder circle
                 Box(
                     modifier = Modifier
                         .size(38.dp)
@@ -92,7 +90,6 @@ fun DynamicIslandMiniPlayer(
                 }
             }
 
-            // Controls & Equalizer Dots
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -113,7 +110,6 @@ fun DynamicIslandMiniPlayer(
                     )
                 }
 
-                // Decorative Equalizer / Color Dots matching your website design
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(Color(0xFFFF3D8B)))
                     Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(Color(0xFFFF9F40)))
@@ -134,12 +130,16 @@ fun SynesthesiaBottomNavBar(
     val items = listOf(Screen.Home, Screen.Search, Screen.Library)
     val textColor = if (isDarkTheme) Color(0xFFF0F0F8) else Color(0xFF141424)
     val activeTint = Color(0xFFFF3D8B)
+    
+    // Lightweight flat/semi-transparent background for high performance on mid-range GPUs
+    val navBackgroundColor = if (isDarkTheme) Color(0xEE12121E) else Color(0xEEF8F8FF)
 
     Box(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 24.dp, vertical = 12.dp)
-            .glassSurface(shape = RoundedCornerShape(40.dp), isDarkTheme = isDarkTheme)
+            .clip(RoundedCornerShape(40.dp))
+            .background(navBackgroundColor)
             .padding(vertical = 10.dp, horizontal = 16.dp)
     ) {
         Row(
