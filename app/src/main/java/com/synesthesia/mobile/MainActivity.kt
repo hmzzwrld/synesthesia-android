@@ -29,7 +29,6 @@ class MainActivity : ComponentActivity() {
             var isDarkTheme by remember { mutableStateOf(true) }
             var currentScreen by remember { mutableStateOf<Screen>(Screen.Home) }
             
-            // Mock playback state for the mini player
             var isPlaying by remember { mutableStateOf(false) }
             val currentTitle by remember { mutableStateOf("Slime You Out [Demo]") }
             val currentArtist by remember { mutableStateOf("RIJELL") }
@@ -44,12 +43,12 @@ class MainActivity : ComponentActivity() {
                             .fillMaxSize()
                             .systemBarsPadding()
                     ) {
-                        // Main Content Area based on selected tab
+                        // Main Content Area
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(horizontal = 24.dp, vertical = 16.dp)
-                                .padding(bottom = 140.dp), // Leave space for floating player & nav
+                                .padding(bottom = 140.dp),
                             horizontalAlignment = Alignment.Start,
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
@@ -61,7 +60,6 @@ class MainActivity : ComponentActivity() {
                                 color = textColor
                             )
 
-                            // Dynamic screen content container
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -92,7 +90,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
 
-                        // Bottom Floating Elements (Dynamic Island Mini-Player + Navigation Bar)
+                        // Bottom Floating Elements (Mini-Player + Nav)
                         Column(
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
