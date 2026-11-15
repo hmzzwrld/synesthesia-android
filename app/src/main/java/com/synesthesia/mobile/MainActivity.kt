@@ -4,7 +4,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -16,6 +15,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.synesthesia.mobile.ui.components.DynamicIslandMiniPlayer
+import com.synesthesia.mobile.ui.components.Screen
+import com.synesthesia.mobile.ui.components.SynesthesiaBottomNavBar
 import com.synesthesia.mobile.ui.theme.SynesthesiaAtmosphere
 import com.synesthesia.mobile.ui.theme.glassSurface
 
@@ -25,6 +27,13 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             var isDarkTheme by remember { mutableStateOf(true) }
+            var currentScreen by remember { mutableStateOf<Screen>(Screen.Home) }
+            
+            // Mock playback state for the mini player
+            var isPlaying by remember { mutableStateOf(false) }
+            val currentTitle by remember { mutableStateOf("Slime You Out [Demo]") }
+            val currentArtist by remember { mutableStateOf("RIJELL") }
+
             val textColor = if (isDarkTheme) Color(0xFFF0F0F8) else Color(0xFF141424)
             val mutedColor = if (isDarkTheme) Color(0xFF9595B2) else Color(0xFF5A5A78)
 
@@ -34,49 +43,76 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier
                             .fillMaxSize()
                             .systemBarsPadding()
-                            .padding(24.dp),
-                        contentAlignment = Alignment.Center
                     ) {
+                        // Main Content Area based on selected tab
                         Column(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .glassSurface(
-                                    shape = RoundedCornerShape(28.dp),
-                                    isDarkTheme = isDarkTheme
-                                )
-                                .padding(28.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                                .fillMaxSize()
+                                .padding(horizontal = 24.dp, vertical = 16.dp)
+                                .padding(bottom = 140.dp), // Leave space for floating player & nav
+                            horizontalAlignment = Alignment.Start,
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             Text(
                                 text = "SYNESTHESIA",
-                                fontSize = 24.sp,
+                                fontSize = 22.sp,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 3.sp,
                                 color = textColor
                             )
-                            Text(
-                                text = "Liquid Glass Foundation Active",
-                                fontSize = 14.sp,
-                                color = mutedColor
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // Dynamic screen content container
                             Box(
                                 modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f)
                                     .glassSurface(
-                                        shape = RoundedCornerShape(50),
+                                        shape = RoundedCornerShape(28.dp),
                                         isDarkTheme = isDarkTheme
                                     )
-                                    .clickable { isDarkTheme = !isDarkTheme }
-                                    .padding(horizontal = 20.dp, vertical = 10.dp)
+                                    .padding(24.dp),
+                                contentAlignment = Alignment.Center
                             ) {
-                                Text(
-                                    text = if (isDarkTheme) "Switch to Bright Mode" else "Switch to Dark Mode",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = textColor
-                                )
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Text(
+                                        text = "Active Tab: ${currentScreen.title}",
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = textColor
+                                    )
+                                    Text(
+                                        text = "UI Shell & Navigation Active",
+                                        fontSize = 13.sp,
+                                        color = mutedColor
+                                    )
+                                }
                             }
+                        }
+
+                        // Bottom Floating Elements (Dynamic Island Mini-Player + Navigation Bar)
+                        Column(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                        ) {
+                            DynamicIslandMiniPlayer(
+                                currentTitle = currentTitle,
+                                currentArtist = currentArtist,
+                                isPlaying = isPlaying,
+                                onPlayPauseClick = { isPlaying = !isPlaying },
+                                isDarkTheme = isDarkTheme
+                            )
+                            
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            SynesthesiaBottomNavBar(
+                                selectedScreen = currentScreen,
+                                onScreenSelected = { screen -> currentScreen = screen },
+                                isDarkTheme = isDarkTheme
+                            )
                         }
                     }
                 }
