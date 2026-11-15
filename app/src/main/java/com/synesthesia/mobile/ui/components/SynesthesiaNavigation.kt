@@ -7,9 +7,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.QueueMusic
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,14 +26,14 @@ import com.synesthesia.mobile.ui.theme.glassSurface
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     object Home : Screen("home", "Home", Icons.Rounded.Home)
     object Search : Screen("search", "Search", Icons.Rounded.Search)
-    object Library : Screen("library", "Library", Icons.Rounded.LibraryMusic)
+    object Library : Screen("library", "Library", Icons.Rounded.QueueMusic)
 }
 
 @Composable
 fun DynamicIslandMiniPlayer(
     currentTitle: String,
     currentArtist: String,
-    isPlaying: Boolean,
+    isPlaying: Boolean, // Kept in signature for future playback state binding
     onPlayPauseClick: () -> Unit,
     isDarkTheme: Boolean,
     modifier: Modifier = Modifier
@@ -131,7 +131,6 @@ fun SynesthesiaBottomNavBar(
     val textColor = if (isDarkTheme) Color(0xFFF0F0F8) else Color(0xFF141424)
     val activeTint = Color(0xFFFF3D8B)
     
-    // Lightweight flat/semi-transparent background for high performance on mid-range GPUs
     val navBackgroundColor = if (isDarkTheme) Color(0xEE12121E) else Color(0xEEF8F8FF)
 
     Box(
