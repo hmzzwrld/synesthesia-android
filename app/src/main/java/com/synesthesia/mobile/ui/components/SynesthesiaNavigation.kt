@@ -33,7 +33,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
 fun DynamicIslandMiniPlayer(
     currentTitle: String,
     currentArtist: String,
-    isPlaying: Boolean, // Kept in signature for future playback state binding
+    isPlaying: Boolean,
     onPlayPauseClick: () -> Unit,
     isDarkTheme: Boolean,
     modifier: Modifier = Modifier
@@ -130,7 +130,7 @@ fun SynesthesiaBottomNavBar(
     val items = listOf(Screen.Home, Screen.Search, Screen.Library)
     val textColor = if (isDarkTheme) Color(0xFFF0F0F8) else Color(0xFF141424)
     val activeTint = Color(0xFFFF3D8B)
-    
+
     val navBackgroundColor = if (isDarkTheme) Color(0xEE12121E) else Color(0xEEF8F8FF)
 
     Box(
