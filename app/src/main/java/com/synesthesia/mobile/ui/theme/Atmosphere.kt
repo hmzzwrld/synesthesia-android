@@ -13,6 +13,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
+val SynesthesiaDarkBg = Color(0xFF05050D)
 // Website ambient palette defaults (--amb-a, --amb-b, --amb-c)
 val DefaultAmbA = Color(0xFFFF3D8B) // #ff3d8b
 val DefaultAmbB = Color(0xFFFF9F40) // #ff9f40
