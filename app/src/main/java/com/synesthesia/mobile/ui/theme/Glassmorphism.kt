@@ -12,16 +12,16 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 // Website Liquid Glass Color & Style Tokens
-val GlassBackgroundDark = Color(0x9912121E) // rgba(18, 18, 30, 0.60)
+val GlassBackgroundDark = Color(0x9912121E)
 val GlassBackgroundBright = Color(0xCCFFFFFF)
-val GlassBorderColor = Color(0x28FFFFFF)     // rgba(255, 255, 255, 0.16)
-val SynesthesiaDarkBg = Color(0xFF05050D)   // --bg-dark from website
+val GlassBorderColor = Color(0x40FFFFFF)     // Increased border luminance
+val SynesthesiaDarkBg = Color(0xFF05050D)
 
 /**
- * Custom Compose Modifier that mimics the website's CSS liquid-glass surface:
- * - Translucent gradient fill
- * - Soft highlight edge borders
- * - Clean clipping to the target shape
+ * Enhanced Liquid Glass Modifier mirroring the website's lush frosted aesthetic:
+ * - Bright top specular highlight gradient
+ * - Rich translucent mid-tones
+ * - Crisp, glowing rim border
  */
 fun Modifier.glassSurface(
     shape: Shape,
@@ -34,14 +34,14 @@ fun Modifier.glassSurface(
             brush = Brush.verticalGradient(
                 colors = if (isDarkTheme) {
                     listOf(
-                        Color.White.copy(alpha = 0.14f),
-                        Color.White.copy(alpha = 0.04f),
-                        Color(0xFF141222).copy(alpha = 0.38f)
+                        Color.White.copy(alpha = 0.22f), // Brighter top specular highlight
+                        Color.White.copy(alpha = 0.07f), // Smooth middle fade
+                        Color(0xFF1E1A38).copy(alpha = 0.55f) // Deep atmospheric tint at bottom
                     )
                 } else {
                     listOf(
-                        Color.White.copy(alpha = 0.85f),
-                        Color.White.copy(alpha = 0.65f)
+                        Color.White.copy(alpha = 0.90f),
+                        Color.White.copy(alpha = 0.70f)
                     )
                 }
             )
@@ -50,8 +50,8 @@ fun Modifier.glassSurface(
             width = borderWidth,
             brush = Brush.verticalGradient(
                 colors = listOf(
-                    Color.White.copy(alpha = 0.38f),
-                    Color.White.copy(alpha = 0.08f)
+                    Color.White.copy(alpha = 0.55f), // Strong top rim light
+                    Color.White.copy(alpha = 0.12f)  // Soft bottom edge
                 )
             ),
             shape = shape
