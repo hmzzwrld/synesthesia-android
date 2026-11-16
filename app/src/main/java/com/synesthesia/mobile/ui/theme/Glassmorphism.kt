@@ -38,9 +38,9 @@ fun Modifier.glassSurface(
             brush = Brush.verticalGradient(
                 colors = if (isDarkTheme) {
                     listOf(
-                        Color.White.copy(alpha = 0.18f), // High specular light capture at top
-                        Color.White.copy(alpha = 0.08f), // Milky mid-tone diffusion
-                        Color.Black.copy(alpha = 0.25f)  // Dark lower refraction anchor
+                        Color(0xFFC4A8FF).copy(alpha = 0.16f), // High specular light capture at top
+                        Color(0xFF568D9A).copy(alpha = 0.07f), // Milky mid-tone diffusion
+                        Color(0xFF0B0B13).copy(alpha = 0.32f)  // Dark lower refraction anchor
                     )
                 } else {
                     listOf(
