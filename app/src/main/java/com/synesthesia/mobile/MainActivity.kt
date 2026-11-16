@@ -53,12 +53,16 @@ class MainActivity : ComponentActivity() {
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             Text(
-                                text = "SYNESTHESIA",
-                                fontSize = 22.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 3.sp,
-                                color = textColor
-                            )
+                            text = "SYNESTHESIA",
+                            color = Color.White,
+                            fontSize = 18.sp,
+                          fontWeight = FontWeight.SemiBold,
+                          letterSpacing = 2.5.sp, // Gives it that wide Apple-style header spacing
+                          modifier = Modifier
+                          .fillMaxWidth()
+                          .padding(horizontal = 24.dp, vertical = 12.dp)
+                           )
+
 
                             Box(
                                 modifier = Modifier
