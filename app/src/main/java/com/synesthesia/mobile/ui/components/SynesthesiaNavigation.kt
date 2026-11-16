@@ -7,9 +7,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.QueueMusic
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,7 +26,7 @@ import com.synesthesia.mobile.ui.theme.glassSurface
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     object Home : Screen("home", "Home", Icons.Rounded.Home)
     object Search : Screen("search", "Search", Icons.Rounded.Search)
-    object Library : Screen("library", "Library", Icons.Rounded.QueueMusic)
+    object Library : Screen("library", "Library", Icons.Rounded.LibraryMusic)
 }
 
 @Composable
@@ -130,7 +130,7 @@ fun SynesthesiaBottomNavBar(
     val items = listOf(Screen.Home, Screen.Search, Screen.Library)
     val textColor = if (isDarkTheme) Color(0xFFF0F0F8) else Color(0xFF141424)
     val activeTint = Color(0xFFFF3D8B)
-
+    
     val navBackgroundColor = if (isDarkTheme) Color(0xEE12121E) else Color(0xEEF8F8FF)
 
     Box(
