@@ -48,11 +48,11 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(horizontal = 16.dp)
-                                .padding(top = 8.dp, bottom = 135.dp),
+                                .padding(top = 2.dp, bottom = 135.dp), // Tucked right up under the status bar
                             horizontalAlignment = Alignment.Start,
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                            verticalArrangement = Arrangement.spacedBy(6.dp) // Minimized gap so the card stretches up high
                         ) {
-                            // Header with 3.sp tracking and Bold weight
+                            // Header Title
                             Text(
                                 text = "SYNESTHESIA",
                                 color = Color.White,
@@ -61,10 +61,10 @@ class MainActivity : ComponentActivity() {
                                 letterSpacing = 3.sp,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 24.dp, vertical = 12.dp)
+                                    .padding(horizontal = 24.dp, vertical = 8.dp)
                             )
 
-                            // Expanded Full-Screen Active Tab Container
+                            // Taller Full-Screen Active Tab Container stretching upward
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
