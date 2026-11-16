@@ -7,7 +7,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.LibraryMusic
+import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
@@ -26,7 +26,7 @@ import com.synesthesia.mobile.ui.theme.glassSurface
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     object Home : Screen("home", "Home", Icons.Rounded.Home)
     object Search : Screen("search", "Search", Icons.Rounded.Search)
-    object Library : Screen("library", "Library", Icons.Rounded.LibraryMusic)
+    object Library : Screen("library", "Library", Icons.Rounded.MusicNote)
 }
 
 @Composable
