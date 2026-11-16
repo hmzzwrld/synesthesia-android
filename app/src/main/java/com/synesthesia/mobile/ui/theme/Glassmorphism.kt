@@ -12,11 +12,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-fun Modifier.appleGlassSurface(
+/**
+ * Universal Apple-style liquid glass modifier with prismatic top highlights,
+ * milky diffusion, physical depth shadows, and a glowing refractive rim.
+ */
+fun Modifier.glassSurface(
     cornerRadius: Dp = 28.dp,
     elevation: Dp = 12.dp
 ): Modifier = this.composed {
-    // 1. Soft multi-layered shadow to lift the glass off the background like a physical lens
     val shape = RoundedCornerShape(cornerRadius)
     
     this
@@ -27,7 +30,7 @@ fun Modifier.appleGlassSurface(
             spotColor = Color.Black.copy(alpha = 0.7f)
         )
         .clip(shape)
-        // 2. Translucent milk-white refractive gradient body
+        // Translucent milk-white refractive gradient body (simulating real glass lens depth)
         .background(
             brush = Brush.verticalGradient(
                 colors = listOf(
@@ -37,7 +40,7 @@ fun Modifier.appleGlassSurface(
                 )
             )
         )
-        // 3. Crisp convex rim border (simulating the curved glass edge refracting light)
+        // Crisp convex rim border simulating light bending along the curved glass edge
         .border(
             width = 1.2.dp,
             brush = Brush.verticalGradient(
