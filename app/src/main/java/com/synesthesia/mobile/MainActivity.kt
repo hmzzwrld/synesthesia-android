@@ -47,23 +47,24 @@ class MainActivity : ComponentActivity() {
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(horizontal = 24.dp, vertical = 16.dp)
-                                .padding(bottom = 140.dp),
+                                .padding(horizontal = 16.dp)
+                                .padding(top = 8.dp, bottom = 135.dp),
                             horizontalAlignment = Alignment.Start,
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
+                            // Header with 3.sp tracking and Bold weight
                             Text(
-                            text = "SYNESTHESIA",
-                            color = Color.White,
-                            fontSize = 18.sp,
-                          fontWeight = FontWeight.SemiBold,
-                          letterSpacing = 2.5.sp, // Gives it that wide Apple-style header spacing
-                          modifier = Modifier
-                          .fillMaxWidth()
-                          .padding(horizontal = 24.dp, vertical = 12.dp)
-                           )
+                                text = "SYNESTHESIA",
+                                color = Color.White,
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 3.sp,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 24.dp, vertical = 12.dp)
+                            )
 
-
+                            // Expanded Full-Screen Active Tab Container
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -99,6 +100,7 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
                                 .fillMaxWidth()
+                                .padding(horizontal = 12.dp)
                         ) {
                             DynamicIslandMiniPlayer(
                                 currentTitle = currentTitle,
