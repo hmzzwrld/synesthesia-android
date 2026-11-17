@@ -4,7 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import androidx.compose.ui.graphics.Color
 import androidx.core.graphics.drawable.toBitmap
-import coil.ImageLoader
+import coil.imageLoader
 import coil.request.ImageRequest
 import coil.request.SuccessResult
 import kotlinx.coroutines.Dispatchers
@@ -26,13 +26,12 @@ object ColorExtractor {
         if (data == null) return@withContext Triple(defaultA, defaultB, defaultC)
 
         try {
-            val loader = ImageLoader(context)
             val request = ImageRequest.Builder(context)
                 .data(data)
                 .allowHardware(false) // Required to obtain a software Bitmap
                 .build()
 
-            val result = loader.execute(request)
+            val result = context.imageLoader.execute(request)
             if (result is SuccessResult) {
                 val bitmap = result.drawable.toBitmap()
                 return@withContext analyzeBitmapColors(bitmap, defaultA, defaultB, defaultC)
@@ -50,36 +49,46 @@ object ColorExtractor {
         defaultB: Color,
         defaultC: Color
     ): Triple<Color, Color, Color> {
-        // Downsample bitmap for fast sampling performance on reference devices
-        val width = 32
-        val height = 32
-        val scaledBitmap = Bitmap.createScaledBitmap(bitmap, width, height, true)
+        // A tiny sample grid is enough for atmosphere colours and keeps work inexpensive.
+        val sampleBitmap = Bitmap.createScaledBitmap(bitmap, 32, 32, true)
+        val buckets = linkedMapOf<Int, MutableList<Int>>()
+        val hsv = FloatArray(3)
 
-        var rSum = 0L
-        var gSum = 0L
-        var bSum = 0L
-        var pixelCount = 0
+        try {
+            for (x in 0 until 32 step 3) {
+                for (y in 0 until 32 step 3) {
+                    val pixel = sampleBitmap.getPixel(x, y)
+                    val r = android.graphics.Color.red(pixel)
+                    val g = android.graphics.Color.green(pixel)
+                    val b = android.graphics.Color.blue(pixel)
+                    android.graphics.Color.RGBToHSV(r, g, b, hsv)
 
-        val samples = mutableListOf<Int>()
+                    // Ignore near-black, near-white and almost colourless pixels.
+                    if (hsv[2] < 0.10f || hsv[2] > 0.97f || hsv[1] < 0.14f) continue
 
-        for (x in 0 until width step 4) {
-            for (y in 0 until height step 4) {
-                val pixel = scaledBitmap.getPixel(x, y)
-                samples.add(pixel)
-                rSum += (pixel shr 16) and 0xFF
-                gSum += (pixel shr 8) and 0xFF
-                bSum += pixel and 0xFF
-                pixelCount++
+                    // Quantize RGB into compact buckets so repeated artwork colours win.
+                    val key = ((r shr 3) shl 10) or ((g shr 3) shl 5) or (b shr 3)
+                    buckets.getOrPut(key) { mutableListOf() }.add(pixel)
+                }
             }
+        } finally {
+            if (sampleBitmap !== bitmap) sampleBitmap.recycle()
         }
 
-        if (pixelCount == 0) return Triple(defaultA, defaultB, defaultC)
+        val dominant = buckets.values
+            .sortedByDescending { it.size }
+            .take(3)
+            .map { pixels ->
+                val red = pixels.sumOf { android.graphics.Color.red(it) } / pixels.size
+                val green = pixels.sumOf { android.graphics.Color.green(it) } / pixels.size
+                val blue = pixels.sumOf { android.graphics.Color.blue(it) } / pixels.size
+                Color(android.graphics.Color.rgb(red, green, blue))
+            }
 
-        // Pick distinct color samples from the image to build a rich dynamic triad
-        val colorA = if (samples.isNotEmpty()) Color(samples[samples.size / 4] or 0xFF000000.toInt()) else defaultA
-        val colorB = if (samples.isNotEmpty()) Color(samples[samples.size / 2] or 0xFF000000.toInt()) else defaultB
-        val colorC = if (samples.isNotEmpty()) Color(samples[(samples.size * 3) / 4] or 0xFF000000.toInt()) else defaultC
-
-        return Triple(colorA, colorB, colorC)
+        return Triple(
+            dominant.getOrNull(0) ?: defaultA,
+            dominant.getOrNull(1) ?: dominant.getOrNull(0) ?: defaultB,
+            dominant.getOrNull(2) ?: dominant.getOrNull(1) ?: defaultC
+        )
     }
 }
