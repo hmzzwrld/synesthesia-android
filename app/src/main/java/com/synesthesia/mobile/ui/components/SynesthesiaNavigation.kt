@@ -131,14 +131,11 @@ fun SynesthesiaBottomNavBar(
     val textColor = if (isDarkTheme) Color(0xFFF0F0F8) else Color(0xFF141424)
     val activeTint = Color(0xFFFF3D8B)
     
-    val navBackgroundColor = if (isDarkTheme) Color(0xEE12121E) else Color(0xEEF8F8FF)
-
     Box(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 24.dp, vertical = 12.dp)
-            .clip(RoundedCornerShape(40.dp))
-            .background(navBackgroundColor)
+            .glassSurface(shape = RoundedCornerShape(40.dp), elevation = 16.dp, isDarkTheme = isDarkTheme)
             .padding(vertical = 10.dp, horizontal = 16.dp)
     ) {
         Row(
