@@ -135,8 +135,8 @@ fun SynesthesiaBottomNavBar(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 24.dp, vertical = 12.dp)
-            .glassSurface(shape = RoundedCornerShape(40.dp), elevation = 16.dp, isDarkTheme = isDarkTheme)
-            .padding(vertical = 10.dp, horizontal = 16.dp)
+            .glassSurface(shape = RoundedCornerShape(40.dp), elevation = 18.dp, isDarkTheme = isDarkTheme)
+            .padding(vertical = 8.dp, horizontal = 12.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),

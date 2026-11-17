@@ -1,40 +1,33 @@
-# SYNESTHESIA Mobile — Native Android
+# SYNESTHESIA — Native Android
 
-This build is a first functional local-library/player milestone based on the supplied SYNESTHESIA website and Android starter project.
+A native Kotlin + Jetpack Compose local music player, using the SYNESTHESIA website source as its visual reference. The app is not a WebView or browser wrapper.
 
-## Latest visual update — Midnight Aurora / Liquid Glass pass
+## Website-to-Android visual port in this update
 
-- Reworked the shared glass material with a softer translucent body, layered lavender reflections, inner/outer rim lighting and a restrained upper sheen.
-- Removed the almost-opaque bottom-navigation fill; the actual navigation used by `MainActivity` is now a floating glass surface.
-- Reduced the expanded-player dim layer so the Aurora remains visible behind the player.
-- Made the Aurora responsive to device dimensions instead of relying on fixed pixel coordinates.
-- Added slow ambient drift and scroll-linked parallax; scrolling Home, Search and Library subtly moves the background light fields.
-- Connected album-art colour extraction to the selected track so the persistent Aurora palette transitions with the music.
-- Improved artwork palette sampling to choose repeated/representative colours rather than arbitrary sample pixels.
-- Enabled transparent system bars so the atmosphere can extend behind the status and navigation bars.
-- Updated the GitHub Actions SDK packages to match compileSdk 35 and removed duplicate Gradle declarations.
+- Bundles the website's original `synesthesia-background.jpg` as the persistent app backdrop.
+- Uses the website's actual ambient palette defaults: `#ff3d8b`, `#ff9f40`, `#a855f7`.
+- Extracts a three-colour palette from the current album artwork and animates the ambient colours when the track changes.
+- Ports the website's translucent liquid-fill gradient, reflective rim, and shadow treatment into the shared Compose glass modifier.
+- Repositions the mini-player and bottom navigation as independent floating overlays above the scrolling content. List padding allows the final items to scroll fully above them.
+- Makes the expanded player use blurred current-album artwork behind its glass panel.
+- Adds an Up Next view backed by the current ExoPlayer media-item list, plus working shuffle, repeat, seek, previous, next and play/pause controls.
+- Draws the subtle dotted mesh from the website background.
+- Includes the website genre art assets in Android drawable resources for later native genre-card use.
 
-## Included in this milestone
-- Native Kotlin + Jetpack Compose interface; no WebView.
-- Midnight Aurora palette and shared translucent glass surfaces.
-- Home dashboard: recently played, most played and current-month top 10 (counts persist locally).
-- MediaStore audio scan for device-stored music; permission is requested at runtime.
-- Library groupings: songs, albums, artists, genres placeholder (Android MediaStore does not reliably expose genre for every file), and folders.
-- Search across local song, artist and album names.
-- ExoPlayer playback, playback queue in library order, mini-player and expanded player with seeking and previous/next.
-- Animated screen changes and content transitions.
+## Native functionality retained
 
-## Visual implementation notes
+- MediaStore local audio scanning and runtime audio permission.
+- ExoPlayer playback of local content URIs without copying audio files.
+- Home listening history, most-played counts and monthly top tracks.
+- Search, songs, albums, artists, genres and folders.
+- Album artwork via MediaStore/Coil.
 
-The current glass treatment is a lightweight Compose implementation using layered gradients, shadows, rim highlights and animated ambient colours. It is **not yet true real-time backdrop refraction**: Compose does not automatically provide a captured copy of the content behind each surface. A proper backdrop capture/refraction pass would need a separate rendering approach and device testing.
+## Important implementation notes
 
-## Important limitations / next milestones
-- This milestone does not yet include a MediaSessionService, so background playback, lock-screen/media notification controls and headset/Bluetooth controls are not complete.
-- Genre grouping currently uses a safe `Unknown genre` fallback; embedded genre extraction and proper genre browsing are next.
-- Album artwork uses MediaStore album-art URIs with a fallback tile; not every device exposes artwork.
-- No cloud sync or streaming catalogue. Music remains local and is not copied by the app.
-- Monthly top 10 counts begin when this version is installed; earlier browser history is not imported.
-- Android Gradle build must be verified by GitHub Actions. This ZIP has not been compiled in this environment; a green workflow is required before treating the APK as build-verified.
+The website CSS uses browser `backdrop-filter: blur(28px) saturate(170%)`. Standard Compose modifiers cannot sample and refract arbitrary sibling content behind a surface. This update ports the visible glass fill, highlights, edges and depth, and uses the real ambient background underneath; it does not claim pixel-identical browser backdrop refraction.
+
+The current Android playback engine is still Activity-owned. Persistent background playback through a `MediaSessionService`, persistent playlists/favourites, queue drag-reordering, and complete website menu/artist interactions are not yet implemented in this project snapshot. They must be added before describing the Android app as a complete functional parity port.
 
 ## Build
-GitHub Actions runs `assembleDebug` and uploads `app-debug.apk` as an artifact.
+
+The GitHub Actions workflow builds `app-debug.apk` with Gradle 8.7, Android Gradle Plugin 8.6.1, JDK 17 and Android SDK 35. ZIP integrity and Kotlin source syntax were checked in the preparation environment, but a full Gradle/Android build could not be run there because the Gradle distribution and Android SDK were not available. GitHub Actions is the required build verification checkpoint.

@@ -22,11 +22,10 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -37,9 +36,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -51,16 +51,13 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import coil.compose.AsyncImage
+import androidx.compose.ui.res.painterResource
 import com.synesthesia.mobile.ui.theme.SynesthesiaAtmosphere
-import com.synesthesia.mobile.ui.theme.DefaultAmbA
-import com.synesthesia.mobile.ui.theme.DefaultAmbB
-import com.synesthesia.mobile.ui.theme.DefaultAmbC
 import com.synesthesia.mobile.ui.theme.glassSurface
 import com.synesthesia.mobile.util.ColorExtractor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.flow.collect
 
 private val Ink = Color(0xFF0B0B13)
 private val Violet = Color(0xFF7655A8)
@@ -80,13 +77,8 @@ class MainActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = android.graphics.Color.TRANSPARENT
         window.navigationBarColor = android.graphics.Color.TRANSPARENT
-        if (Build.VERSION.SDK_INT >= 29) {
-            window.isNavigationBarContrastEnforced = false
-        }
-        WindowInsetsControllerCompat(window, window.decorView).apply {
-            isAppearanceLightStatusBars = false
-            isAppearanceLightNavigationBars = false
-        }
+        WindowInsetsControllerCompat(window, window.decorView).isAppearanceLightStatusBars = false
+        WindowInsetsControllerCompat(window, window.decorView).isAppearanceLightNavigationBars = false
         player = ExoPlayer.Builder(this).build()
         setContent { SynesthesiaApp(player!!) }
     }
@@ -104,26 +96,11 @@ private fun SynesthesiaApp(player: ExoPlayer) {
     var selected by remember { mutableStateOf<LocalTrack?>(null) }
     var playing by remember { mutableStateOf(false) }
     var expandedPlayer by remember { mutableStateOf(false) }
-    var scrollProgress by remember { mutableFloatStateOf(0f) }
     var scanning by remember { mutableStateOf(false) }
     var scanMessage by remember { mutableStateOf("Scan your device to find music") }
     var playCounts by remember { mutableStateOf<Map<Long, Int>>(emptyMap()) }
     var recentIds by remember { mutableStateOf<List<Long>>(emptyList()) }
     var monthlyCounts by remember { mutableStateOf<Map<Long, Int>>(emptyMap()) }
-    var ambientPalette by remember {
-        mutableStateOf(Triple(DefaultAmbA, DefaultAmbB, DefaultAmbC))
-    }
-
-    // Artwork colours now drive the persistent Aurora behind every screen.
-    LaunchedEffect(selected?.id) {
-        ambientPalette = ColorExtractor.extractPaletteFromUri(
-            context = context,
-            data = selected?.artwork,
-            defaultA = DefaultAmbA,
-            defaultB = DefaultAmbB,
-            defaultC = DefaultAmbC
-        )
-    }
     val prefs = remember { context.getSharedPreferences("synesthesia_stats", 0) }
     LaunchedEffect(Unit) {
         playCounts = prefs.all.filterKeys { it.startsWith("plays_") }.mapNotNull { (k,v) -> k.removePrefix("plays_").toLongOrNull()?.let { it to (v as? Int ?: 0) } }.toMap()
@@ -144,9 +121,16 @@ private fun SynesthesiaApp(player: ExoPlayer) {
         monthlyCounts = monthlyCounts + (track.id to monthCount)
         prefs.edit().putInt("plays_${track.id}", count).putInt("month_${monthKey}_${track.id}", monthCount).putString("recent", recentIds.joinToString(",")).apply()
     }
-    DisposableEffect(player) {
-        val listener = object : Player.Listener { override fun onIsPlayingChanged(isPlaying: Boolean) { playing = isPlaying } }
-        player.addListener(listener); onDispose { player.removeListener(listener) }
+    DisposableEffect(player, tracks) {
+        val listener = object : Player.Listener {
+            override fun onIsPlayingChanged(isPlaying: Boolean) { playing = isPlaying }
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                val id = mediaItem?.mediaId?.toLongOrNull()
+                if (id != null) selected = tracks.firstOrNull { it.id == id } ?: selected
+            }
+        }
+        player.addListener(listener)
+        onDispose { player.removeListener(listener) }
     }
     suspend fun scan() {
         scanning = true; scanMessage = "Scanning local audio…"
@@ -175,50 +159,94 @@ private fun SynesthesiaApp(player: ExoPlayer) {
     var hasPermission by remember { mutableStateOf(ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> hasPermission=granted; if(granted) scope.launch { scan() } }
     LaunchedEffect(hasPermission) { if(hasPermission && tracks.isEmpty()) scan() }
-    val text = White
-    MaterialTheme(colorScheme = darkColorScheme(primary=Lavender, background=Ink, surface=Color(0xFF191625), onSurface=White)) {
-        SynesthesiaAtmosphere(
-            ambA = ambientPalette.first,
-            ambB = ambientPalette.second,
-            ambC = ambientPalette.third,
-            scrollProgress = scrollProgress
-        ) {
-            Box(Modifier.fillMaxSize().systemBarsPadding()) {
-                Column(Modifier.fillMaxSize().padding(horizontal=16.dp)) {
-                    Row(Modifier.fillMaxWidth().padding(top=12.dp,bottom=14.dp), verticalAlignment=Alignment.CenterVertically, horizontalArrangement=Arrangement.SpaceBetween) {
-                        Column { Text("SYNESTHESIA", color=White, fontSize=17.sp, fontWeight=FontWeight.Black, letterSpacing=3.sp); Text("YOUR SOUND. YOUR SPACE.", color=Muted, fontSize=9.sp, letterSpacing=2.sp) }
-                        IconButton(onClick={ if(hasPermission) scope.launch { scan() } else launcher.launch(permission) }) { Icon(Icons.Rounded.Refresh, "Rescan music", tint=Lavender) }
+    var ambientPalette by remember { mutableStateOf(Triple(Color(0xFFFF3D8B), Color(0xFFFF9F40), Color(0xFFA855F7))) }
+    LaunchedEffect(selected?.artwork) {
+        ambientPalette = ColorExtractor.extractPaletteFromUri(
+            context, selected?.artwork,
+            Color(0xFFFF3D8B), Color(0xFFFF9F40), Color(0xFFA855F7)
+        )
+    }
+    MaterialTheme(colorScheme = darkColorScheme(primary=ambientPalette.first, background=Ink, surface=Color(0xFF12121E), onSurface=White)) {
+        SynesthesiaAtmosphere(ambA=ambientPalette.first, ambB=ambientPalette.second, ambC=ambientPalette.third) {
+            Box(Modifier.fillMaxSize()) {
+                // Website reference: fixed background image, adaptive colour wash, ambient glow and fine mesh.
+                Image(
+                    painter = painterResource(id = R.drawable.synesthesia_background),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                    alpha = 0.66f
+                )
+                Box(
+                    Modifier.fillMaxSize().background(
+                        Brush.linearGradient(
+                            0f to ambientPalette.third.copy(alpha = 0.20f),
+                            0.48f to Color(0xFF05050D).copy(alpha = 0.18f),
+                            1f to ambientPalette.first.copy(alpha = 0.12f)
+                        )
+                    )
+                )
+                // Fine dotted glass mesh from the website, intentionally subtle on mobile.
+                androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+                    val step = 24.dp.toPx()
+                    val dot = Color.White.copy(alpha = 0.025f)
+                    var y = 0f
+                    while (y < size.height) {
+                        var x = 0f
+                        while (x < size.width) {
+                            drawCircle(dot, radius = 0.65.dp.toPx(), center = androidx.compose.ui.geometry.Offset(x, y))
+                            x += step
+                        }
+                        y += step
                     }
-                    AnimatedContent(tab, transitionSpec={ fadeIn(tween(220))+slideInVertically { it/18 } togetherWith fadeOut(tween(150))+slideOutVertically { -it/18 } }, label="main-tabs", modifier=Modifier.weight(1f)) { destination ->
-                        when(destination) {
-                            Tab.HOME -> HomeScreen(tracks, recentIds, playCounts, monthlyCounts, selected, ::play, {tab=Tab.LIBRARY; scrollProgress=0f}, scanMessage, {scrollProgress=it})
-                            Tab.SEARCH -> SearchScreen(tracks, query, {query=it}, ::play, {scrollProgress=it})
-                            Tab.LIBRARY -> LibraryScreen(tracks, libraryTab, {libraryTab=it}, query, {query=it}, ::play, {scrollProgress=it})
+                }
+                Column(Modifier.fillMaxSize().systemBarsPadding().padding(horizontal=16.dp)) {
+                    Row(Modifier.fillMaxWidth().padding(top=12.dp,bottom=14.dp), verticalAlignment=Alignment.CenterVertically, horizontalArrangement=Arrangement.SpaceBetween) {
+                        Column {
+                            Text("SYNESTHESIA", color=White, fontSize=17.sp, fontWeight=FontWeight.Black, letterSpacing=3.sp)
+                            Text("YOUR SOUND. YOUR WORLD.", color=Muted, fontSize=9.sp, letterSpacing=2.sp)
+                        }
+                        IconButton(onClick={ if(hasPermission) scope.launch { scan() } else launcher.launch(permission) }) {
+                            Icon(Icons.Rounded.Refresh, "Rescan music", tint=ambientPalette.first)
                         }
                     }
+                    AnimatedContent(
+                        tab,
+                        transitionSpec={ fadeIn(tween(220))+slideInVertically { it/18 } togetherWith fadeOut(tween(150))+slideOutVertically { -it/18 } },
+                        label="main-tabs",
+                        modifier=Modifier.weight(1f).fillMaxWidth()
+                    ) { destination ->
+                        when(destination) {
+                            Tab.HOME -> HomeScreen(tracks, recentIds, playCounts, monthlyCounts, selected, ::play, {tab=Tab.LIBRARY}, scanMessage)
+                            Tab.SEARCH -> SearchScreen(tracks, query, {query=it}, ::play)
+                            Tab.LIBRARY -> LibraryScreen(tracks, libraryTab, {libraryTab=it}, query, {query=it}, ::play)
+                        }
+                    }
+                }
+                // Website layout: independent floating island and bottom navigation, over the scroll layer.
+                Column(
+                    modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding().padding(horizontal=14.dp).padding(bottom=8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(9.dp)
+                ) {
                     AnimatedVisibility(selected!=null, enter=fadeIn()+slideInVertically { it/2 }, exit=fadeOut()+slideOutVertically { it/2 }) {
                         MiniPlayer(selected, playing, { if(player.isPlaying) player.pause() else player.play() }, {expandedPlayer=true})
                     }
-                    Navigation(tab,{tab=it; scrollProgress=0f})
+                    Navigation(tab,{tab=it})
                 }
-                if(expandedPlayer && selected!=null) PlayerSheet(selected!!, playing, { if(player.isPlaying) player.pause() else player.play() }, {player.seekToPreviousMediaItem()}, {player.seekToNextMediaItem()}, {expandedPlayer=false}, player)
+                if(expandedPlayer && selected!=null) PlayerSheet(selected!!, playing, { if(player.isPlaying) player.pause() else player.play() }, {player.seekToPreviousMediaItem()}, {player.seekToNextMediaItem()}, {expandedPlayer=false}, player, tracks)
                 if(!hasPermission) PermissionPrompt { launcher.launch(permission) }
-                if(scanning) Box(Modifier.fillMaxSize().background(Color.Black.copy(.35f)), contentAlignment=Alignment.Center) { CircularProgressIndicator(color=Lavender) }
+                if(scanning) Box(Modifier.fillMaxSize().background(Color.Black.copy(.35f)), contentAlignment=Alignment.Center) { CircularProgressIndicator(color=ambientPalette.first) }
             }
         }
     }
 }
 
-@Composable private fun HomeScreen(tracks:List<LocalTrack>, recent:List<Long>, counts:Map<Long,Int>, monthly:Map<Long,Int>, selected:LocalTrack?, onPlay:(LocalTrack)->Unit, openLibrary:()->Unit, message:String, onScroll:(Float)->Unit) {
-    val listState = rememberLazyListState()
-    LaunchedEffect(listState) {
-        snapshotFlow { listState.firstVisibleItemIndex * 360f + listState.firstVisibleItemScrollOffset.toFloat() }
-            .collect { offset -> onScroll((offset / 450f).toInt().coerceIn(0, 8) / 8f) }
-    }
+@Composable private fun HomeScreen(tracks:List<LocalTrack>, recent:List<Long>, counts:Map<Long,Int>, monthly:Map<Long,Int>, selected:LocalTrack?, onPlay:(LocalTrack)->Unit, openLibrary:()->Unit, message:String) {
     val recentTracks=recent.mapNotNull { id -> tracks.find{it.id==id} }
     val most=tracks.sortedByDescending { counts[it.id]?:0 }.filter { (counts[it.id]?:0)>0 }.take(10)
     val monthTop=tracks.sortedByDescending { monthly[it.id]?:0 }.filter { (monthly[it.id]?:0)>0 }.take(10)
-    LazyColumn(state=listState, verticalArrangement=Arrangement.spacedBy(16.dp), contentPadding=PaddingValues(bottom=18.dp)) {
+    LazyColumn(verticalArrangement=Arrangement.spacedBy(16.dp), contentPadding=PaddingValues(bottom=190.dp)) {
         item { Column { Text("Good music, good mood.", color=White,fontSize=25.sp,fontWeight=FontWeight.Bold); Text(message,color=Muted,fontSize=12.sp) } }
         item { SectionHeader("YOUR ROTATION", "MOST PLAYED"); if(most.isEmpty()) EmptyCard("Your most-played tracks will appear here as you listen.") else most.take(5).forEach { TrackRow(it,onPlay,counts[it.id]?:0) } }
         item { SectionHeader("PICK UP WHERE YOU LEFT", "RECENTLY PLAYED"); if(recentTracks.isEmpty()) EmptyCard("Your listening history will build automatically.") else recentTracks.take(6).forEach { TrackRow(it,onPlay) } }
@@ -227,96 +255,159 @@ private fun SynesthesiaApp(player: ExoPlayer) {
     }
 }
 
-@Composable private fun SearchScreen(tracks:List<LocalTrack>, query:String, change:(String)->Unit, play:(LocalTrack)->Unit, onScroll:(Float)->Unit) {
-    val listState = rememberLazyListState()
-    LaunchedEffect(listState) {
-        snapshotFlow { listState.firstVisibleItemIndex * 360f + listState.firstVisibleItemScrollOffset.toFloat() }
-            .collect { offset -> onScroll((offset / 450f).toInt().coerceIn(0, 8) / 8f) }
-    }
-    Column { Text("Find your sound",color=White,fontSize=24.sp,fontWeight=FontWeight.Bold); Spacer(Modifier.height(12.dp)); OutlinedTextField(query,change,Modifier.fillMaxWidth(),placeholder={Text("Search songs, artists, albums…",color=Muted)},leadingIcon={Icon(Icons.Rounded.Search,null,tint=Lavender)},singleLine=true,shape=RoundedCornerShape(20.dp),colors=OutlinedTextFieldDefaults.colors(focusedBorderColor=Lavender,unfocusedBorderColor=Color.White.copy(.16f),focusedTextColor=White,unfocusedTextColor=White,focusedContainerColor=Color.Transparent,unfocusedContainerColor=Color.Transparent)); LazyColumn(state=listState) { items(tracks.filter{query.isBlank() || listOf(it.title,it.artist,it.album).any{s->s.contains(query,true)}}) { TrackRow(it,play) } } }
+@Composable private fun SearchScreen(tracks:List<LocalTrack>, query:String, change:(String)->Unit, play:(LocalTrack)->Unit) {
+    Column { Text("Find your sound",color=White,fontSize=24.sp,fontWeight=FontWeight.Bold); Spacer(Modifier.height(12.dp)); OutlinedTextField(query,change,Modifier.fillMaxWidth(),placeholder={Text("Search songs, artists, albums…",color=Muted)},leadingIcon={Icon(Icons.Rounded.Search,null,tint=Lavender)},singleLine=true,shape=RoundedCornerShape(20.dp),colors=OutlinedTextFieldDefaults.colors(focusedBorderColor=Lavender,unfocusedBorderColor=Color.White.copy(.16f),focusedTextColor=White,unfocusedTextColor=White)); LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(tracks.filter{query.isBlank() || listOf(it.title,it.artist,it.album).any{s->s.contains(query,true)}}) { TrackRow(it,play) } } }
 }
 
-@Composable private fun LibraryScreen(tracks:List<LocalTrack>, selected:LibraryTab, choose:(LibraryTab)->Unit, query:String, change:(String)->Unit, play:(LocalTrack)->Unit, onScroll:(Float)->Unit) {
-    val listState = rememberLazyListState()
-    LaunchedEffect(listState) {
-        snapshotFlow { listState.firstVisibleItemIndex * 360f + listState.firstVisibleItemScrollOffset.toFloat() }
-            .collect { offset -> onScroll((offset / 450f).toInt().coerceIn(0, 8) / 8f) }
-    }
+@Composable private fun LibraryScreen(tracks:List<LocalTrack>, selected:LibraryTab, choose:(LibraryTab)->Unit, query:String, change:(String)->Unit, play:(LocalTrack)->Unit) {
     Column { Text("Your Library",color=White,fontSize=25.sp,fontWeight=FontWeight.Bold); Spacer(Modifier.height(10.dp)); Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) { LibraryTab.values().forEach { item -> FilterChip(selected==item,{choose(item)},label={Text(item.label,fontSize=11.sp)},colors=FilterChipDefaults.filterChipColors(selectedContainerColor=Violet.copy(.35f),labelColor=Muted,selectedLabelColor=White)) } }; Spacer(Modifier.height(8.dp)); when(selected) {
-        LibraryTab.SONGS -> LazyColumn(state=listState) { items(tracks.filter{query.isBlank()||it.title.contains(query,true)||it.artist.contains(query,true)}){TrackRow(it,play)} }
-        LibraryTab.ALBUMS -> LazyColumn(state=listState) { items(tracks.groupBy{it.album}.toList().sortedBy{it.first}) { (name,songs) -> CollectionRow(name,songs.first().artist,"${songs.size} tracks",songs.first().artwork){songs.firstOrNull()?.let(play)} } }
-        LibraryTab.ARTISTS -> LazyColumn(state=listState) { items(tracks.groupBy{it.artist}.toList().sortedBy{it.first}) { (name,songs) -> CollectionRow(name,"Artist","${songs.size} tracks",songs.first().artwork){songs.firstOrNull()?.let(play)} } }
-        LibraryTab.GENRES -> LazyColumn(state=listState) { items(tracks.groupBy{it.genre}.toList().sortedBy{it.first}) { (name,songs) -> CollectionRow(name,"Genre","${songs.size} tracks",songs.first().artwork){songs.firstOrNull()?.let(play)} } }
-        LibraryTab.FOLDERS -> LazyColumn(state=listState) { items(tracks.groupBy{it.path.substringBeforeLast('/',"/")}.toList().sortedBy{it.first}) { (name,songs) -> CollectionRow(name.substringAfterLast('/').ifBlank{"Music"},name,"${songs.size} tracks",songs.first().artwork){songs.firstOrNull()?.let(play)} } }
+        LibraryTab.SONGS -> LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(tracks.filter{query.isBlank()||it.title.contains(query,true)||it.artist.contains(query,true)}){TrackRow(it,play)} }
+        LibraryTab.ALBUMS -> LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(tracks.groupBy{it.album}.toList().sortedBy{it.first}) { (name,songs) -> CollectionRow(name,songs.first().artist,"${songs.size} tracks",songs.first().artwork){songs.firstOrNull()?.let(play)} } }
+        LibraryTab.ARTISTS -> LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(tracks.groupBy{it.artist}.toList().sortedBy{it.first}) { (name,songs) -> CollectionRow(name,"Artist","${songs.size} tracks",songs.first().artwork){songs.firstOrNull()?.let(play)} } }
+        LibraryTab.GENRES -> LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(tracks.groupBy{it.genre}.toList().sortedBy{it.first}) { (name,songs) -> CollectionRow(name,"Genre","${songs.size} tracks",songs.first().artwork){songs.firstOrNull()?.let(play)} } }
+        LibraryTab.FOLDERS -> LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(tracks.groupBy{it.path.substringBeforeLast('/',"/")}.toList().sortedBy{it.first}) { (name,songs) -> CollectionRow(name.substringAfterLast('/').ifBlank{"Music"},name,"${songs.size} tracks",songs.first().artwork){songs.firstOrNull()?.let(play)} } }
     } }
 }
 
 @Composable private fun TrackRow(track:LocalTrack,onPlay:(LocalTrack)->Unit,plays:Int?=null,rank:Int?=null) { Row(Modifier.fillMaxWidth().clickable{onPlay(track)}.padding(vertical=7.dp),verticalAlignment=Alignment.CenterVertically) { Artwork(track.artwork,46); Spacer(Modifier.width(11.dp)); Column(Modifier.weight(1f)) { Text((rank?.let{"$it. "}?:"")+track.title,color=White,fontWeight=FontWeight.SemiBold,fontSize=13.sp,maxLines=1,overflow=TextOverflow.Ellipsis); Text(track.artist+" · "+track.album,color=Muted,fontSize=11.sp,maxLines=1,overflow=TextOverflow.Ellipsis) }; if(plays!=null) Text("${plays}×",color=Lavender,fontSize=11.sp); Icon(Icons.Rounded.PlayCircleOutline,null,tint=Lavender,modifier=Modifier.padding(start=8.dp)) } }
 @Composable private fun CollectionRow(title:String,subtitle:String,detail:String,art:Uri?,click:()->Unit){ Row(Modifier.fillMaxWidth().clickable(onClick=click).padding(vertical=8.dp),verticalAlignment=Alignment.CenterVertically){Artwork(art,50);Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(title,color=White,fontWeight=FontWeight.SemiBold);Text(subtitle,color=Muted,fontSize=11.sp)};Text(detail,color=Muted,fontSize=10.sp)} }
 @Composable private fun Artwork(uri:Uri?,size:Int){ Box(Modifier.size(size.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF282139)),contentAlignment=Alignment.Center){ if(uri!=null) AsyncImage(uri,null,Modifier.fillMaxSize()) else Icon(Icons.Rounded.Album,null,tint=Lavender,modifier=Modifier.size((size/2).dp)) } }
-@Composable private fun MiniPlayer(track:LocalTrack?,playing:Boolean,toggle:()->Unit,expand:()->Unit){ if(track==null)return; Row(Modifier.fillMaxWidth().padding(horizontal=3.dp, vertical=8.dp).glassSurface(RoundedCornerShape(25.dp), elevation=16.dp, isDarkTheme=true).clickable(onClick=expand).padding(horizontal=12.dp, vertical=10.dp),verticalAlignment=Alignment.CenterVertically){Artwork(track.artwork,38);Spacer(Modifier.width(10.dp));Column(Modifier.weight(1f)){Text(track.title,color=White,fontSize=12.sp,fontWeight=FontWeight.SemiBold,maxLines=1);Text(track.artist,color=Muted,fontSize=10.sp,maxLines=1)};IconButton(toggle){Icon(if(playing)Icons.Rounded.Pause else Icons.Rounded.PlayArrow,null,tint=White)} } }
-@Composable private fun PlayerSheet(track:LocalTrack,playing:Boolean,toggle:()->Unit,previous:()->Unit,next:()->Unit,close:()->Unit,player:ExoPlayer){ Box(Modifier.fillMaxSize().background(Color.Black.copy(.30f)).clickable(onClick=close).padding(14.dp),contentAlignment=Alignment.Center){ Column(Modifier.fillMaxWidth().fillMaxHeight(.88f).glassSurface(RoundedCornerShape(32.dp),isDarkTheme=true).clickable(enabled=false){}.padding(22.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.SpaceEvenly){ Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text("NOW PLAYING",color=Muted,letterSpacing=2.sp,fontSize=11.sp);IconButton(close){Icon(Icons.Rounded.Close,null,tint=White)}};ArtworkLarge(track.artwork);Text(track.title,color=White,fontSize=22.sp,fontWeight=FontWeight.Bold,maxLines=1);Text(track.artist,color=Muted);var progress by remember{mutableFloatStateOf(0f)}; LaunchedEffect(player){while(true){if(player.duration>0)progress=(player.currentPosition.toFloat()/player.duration).coerceIn(0f,1f);kotlinx.coroutines.delay(500)}};Slider(progress,{progress=it; if(player.duration>0)player.seekTo((player.duration*it).toLong())},colors=SliderDefaults.colors(thumbColor=Lavender,activeTrackColor=Violet,inactiveTrackColor=Color.White.copy(.15f)));Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically){IconButton(previous){Icon(Icons.Rounded.SkipPrevious,null,tint=White,modifier=Modifier.size(34.dp))};FilledIconButton(toggle,colors=IconButtonDefaults.filledIconButtonColors(containerColor=Lavender,contentColor=Ink),modifier=Modifier.size(64.dp)){Icon(if(playing)Icons.Rounded.Pause else Icons.Rounded.PlayArrow,null,modifier=Modifier.size(34.dp))};IconButton(next){Icon(Icons.Rounded.SkipNext,null,tint=White,modifier=Modifier.size(34.dp))}} } } }
-@Composable private fun ArtworkLarge(uri:Uri?){
-    val shape = RoundedCornerShape(26.dp)
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .aspectRatio(1f)
-            .shadow(18.dp, shape)
-            .clip(shape)
-            .background(Color(0xFF292039))
-            .border(1.dp, Brush.verticalGradient(listOf(Color.White.copy(.58f), Color.White.copy(.06f))), shape),
-        contentAlignment = Alignment.Center
-    ) {
-        if (uri != null) AsyncImage(uri, null, Modifier.fillMaxSize())
-        else Icon(Icons.Rounded.Album, null, tint = Lavender, modifier = Modifier.size(100.dp))
+@Composable private fun MiniPlayer(track:LocalTrack?,playing:Boolean,toggle:()->Unit,expand:()->Unit){ if(track==null)return; Row(Modifier.widthIn(max=390.dp).fillMaxWidth().glassSurface(RoundedCornerShape(999.dp), elevation=18.dp, isDarkTheme=true).clickable(onClick=expand).padding(horizontal=13.dp, vertical=9.dp),verticalAlignment=Alignment.CenterVertically){Artwork(track.artwork,38);Spacer(Modifier.width(10.dp));Column(Modifier.weight(1f)){Text(track.title,color=White,fontSize=12.sp,fontWeight=FontWeight.SemiBold,maxLines=1);Text(track.artist,color=Muted,fontSize=10.sp,maxLines=1)};IconButton(toggle){Icon(if(playing)Icons.Rounded.Pause else Icons.Rounded.PlayArrow,null,tint=White)} } }
+@Composable private fun PlayerSheet(
+    track: LocalTrack,
+    playing: Boolean,
+    toggle: () -> Unit,
+    previous: () -> Unit,
+    next: () -> Unit,
+    close: () -> Unit,
+    player: ExoPlayer,
+    queue: List<LocalTrack>
+) {
+    var progress by remember { mutableFloatStateOf(0f) }
+    var showQueue by remember { mutableStateOf(false) }
+    var shuffle by remember { mutableStateOf(player.shuffleModeEnabled) }
+    var repeat by remember { mutableIntStateOf(player.repeatMode) }
+    LaunchedEffect(player) {
+        while (true) {
+            val duration = player.duration
+            if (duration > 0) progress = (player.currentPosition.toFloat() / duration).coerceIn(0f, 1f)
+            kotlinx.coroutines.delay(400)
+        }
+    }
+    Box(Modifier.fillMaxSize().background(Color(0xFF05050D))) {
+        if (track.artwork != null) {
+            AsyncImage(
+                model=track.artwork,
+                contentDescription=null,
+                contentScale=ContentScale.Crop,
+                modifier=Modifier.fillMaxSize().blur(28.dp),
+                alpha=0.72f
+            )
+        }
+        Box(Modifier.fillMaxSize().background(Color(0xFF05050D).copy(alpha=.64f)))
+        Box(Modifier.fillMaxSize().clickable(onClick=close).padding(12.dp), contentAlignment=Alignment.Center) {
+        Column(
+            Modifier.fillMaxWidth().fillMaxHeight(.94f)
+                .glassSurface(RoundedCornerShape(34.dp), elevation=24.dp, isDarkTheme=true)
+                .clickable {}.padding(horizontal=20.dp, vertical=16.dp),
+            horizontalAlignment=Alignment.CenterHorizontally,
+            verticalArrangement=Arrangement.spacedBy(10.dp)
+        ) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.SpaceBetween, verticalAlignment=Alignment.CenterVertically) {
+                IconButton(onClick=close) { Icon(Icons.Rounded.KeyboardArrowDown, "Close player", tint=White) }
+                Column(horizontalAlignment=Alignment.CenterHorizontally) {
+                    Text("NOW PLAYING", color=Color(0xFFFF3D8B), letterSpacing=2.sp, fontSize=10.sp, fontWeight=FontWeight.Bold)
+                    Text(if (showQueue) "LIQUID QUEUE" else "YOUR SOUND. YOUR WORLD.", color=Muted, fontSize=9.sp, letterSpacing=1.sp)
+                }
+                IconButton(onClick={ showQueue = !showQueue }) { Icon(if(showQueue) Icons.Rounded.Album else Icons.Rounded.QueueMusic, "Toggle queue", tint=White) }
+            }
+            if (showQueue) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment=Alignment.CenterVertically, horizontalArrangement=Arrangement.SpaceBetween) {
+                    Text("Up Next", color=White, fontSize=22.sp, fontWeight=FontWeight.Bold)
+                    Text("${queue.size} tracks", color=Muted, fontSize=11.sp)
+                }
+                LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding=PaddingValues(bottom=10.dp), verticalArrangement=Arrangement.spacedBy(3.dp)) {
+                    items(queue) { item ->
+                        val index = queue.indexOf(item)
+                        val active = index == player.currentMediaItemIndex
+                        Row(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
+                                .background(if(active) Color.White.copy(.10f) else Color.Transparent)
+                                .clickable { player.seekToDefaultPosition(index); player.play() }
+                                .padding(horizontal=8.dp, vertical=7.dp),
+                            verticalAlignment=Alignment.CenterVertically
+                        ) {
+                            Artwork(item.artwork, 42)
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(item.title, color=if(active) Color(0xFFFF3D8B) else White, fontSize=12.sp, fontWeight=FontWeight.SemiBold, maxLines=1, overflow=TextOverflow.Ellipsis)
+                                Text(item.artist, color=Muted, fontSize=10.sp, maxLines=1, overflow=TextOverflow.Ellipsis)
+                            }
+                            if(active) Icon(Icons.Rounded.GraphicEq, null, tint=Color(0xFFFF3D8B))
+                            else Text(formatDuration(item.duration), color=Muted, fontSize=10.sp)
+                        }
+                    }
+                }
+            } else {
+                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment=Alignment.Center) {
+                    ArtworkLarge(track.artwork)
+                }
+                Column(Modifier.fillMaxWidth(), horizontalAlignment=Alignment.Start) {
+                    Text(track.title, color=White, fontSize=21.sp, fontWeight=FontWeight.Bold, maxLines=1, overflow=TextOverflow.Ellipsis)
+                    Text(track.artist, color=Muted, fontSize=14.sp, maxLines=1, overflow=TextOverflow.Ellipsis)
+                    Text(track.album, color=Color(0xFFFF3D8B).copy(.85f), fontSize=11.sp, maxLines=1, overflow=TextOverflow.Ellipsis)
+                }
+                Slider(
+                    value=progress,
+                    onValueChange={ progress=it; if(player.duration>0) player.seekTo((player.duration*it).toLong()) },
+                    colors=SliderDefaults.colors(thumbColor=Color(0xFFFF3D8B), activeTrackColor=Color(0xFFFF3D8B), inactiveTrackColor=Color.White.copy(.16f))
+                )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.SpaceBetween) {
+                    Text(formatDuration(player.currentPosition.coerceAtLeast(0)), color=Muted, fontSize=10.sp)
+                    Text(if(player.duration>0) "-${formatDuration((player.duration-player.currentPosition).coerceAtLeast(0))}" else "0:00", color=Muted, fontSize=10.sp)
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.SpaceEvenly, verticalAlignment=Alignment.CenterVertically) {
+                    IconButton(onClick={ shuffle=!shuffle; player.shuffleModeEnabled=shuffle }) { Icon(Icons.Rounded.Shuffle, "Shuffle", tint=if(shuffle) Color(0xFFFF3D8B) else Muted) }
+                    IconButton(onClick=previous) { Icon(Icons.Rounded.SkipPrevious, "Previous", tint=White, modifier=Modifier.size(34.dp)) }
+                    FilledIconButton(toggle, colors=IconButtonDefaults.filledIconButtonColors(containerColor=Color(0xFFFF3D8B), contentColor=Color(0xFF05050D)), modifier=Modifier.size(66.dp)) {
+                        Icon(if(playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, "Play or pause", modifier=Modifier.size(34.dp))
+                    }
+                    IconButton(onClick=next) { Icon(Icons.Rounded.SkipNext, "Next", tint=White, modifier=Modifier.size(34.dp)) }
+                    IconButton(onClick={ repeat=(repeat+1)%3; player.repeatMode=repeat }) { Icon(Icons.Rounded.Repeat, "Repeat", tint=if(repeat!=Player.REPEAT_MODE_OFF) Color(0xFFFF3D8B) else Muted) }
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.Center) {
+                    Text("UP NEXT  ·  ${queue.size} TRACKS", color=Muted, fontSize=9.sp, letterSpacing=1.6.sp)
+                }
+            }
+        }
+        }
     }
 }
+
+private fun formatDuration(ms: Long): String {
+    val totalSeconds = (ms / 1000L).coerceAtLeast(0L)
+    return "${totalSeconds / 60}:${(totalSeconds % 60).toString().padStart(2, '0')}"
+}
+
+@Composable private fun ArtworkLarge(uri:Uri?){ Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(24.dp)).background(Color(0xFF292039)),contentAlignment=Alignment.Center){if(uri!=null)AsyncImage(uri,null,Modifier.fillMaxSize())else Icon(Icons.Rounded.Album,null,tint=Lavender,modifier=Modifier.size(100.dp))} }
 @Composable private fun Navigation(tab:Tab,select:(Tab)->Unit){
     Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal=5.dp, vertical=8.dp)
-            .glassSurface(RoundedCornerShape(30.dp), elevation=18.dp, isDarkTheme=true)
-            .padding(horizontal=7.dp, vertical=7.dp),
-        horizontalArrangement=Arrangement.SpaceEvenly
+        Modifier.widthIn(max=340.dp).fillMaxWidth()
+            .glassSurface(RoundedCornerShape(999.dp), elevation=20.dp, isDarkTheme=true)
+            .padding(horizontal=7.dp, vertical=6.dp),
+        horizontalArrangement=Arrangement.SpaceEvenly,
+        verticalAlignment=Alignment.CenterVertically
     ) {
-        Tab.values().forEach { item ->
-            val active = tab == item
+        Tab.values().forEach { t ->
+            val active = tab == t
             Column(
-                Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(23.dp))
-                    .clickable { select(item) }
-                    .then(
-                        if (active) Modifier.background(
-                            Brush.verticalGradient(
-                                listOf(
-                                    Lavender.copy(alpha = 0.23f),
-                                    Violet.copy(alpha = 0.12f),
-                                    Color.Transparent
-                                )
-                            )
-                        ) else Modifier
-                    )
-                    .padding(vertical=9.dp),
+                Modifier.weight(1f).clip(RoundedCornerShape(999.dp)).clickable { select(t) }
+                    .background(if(active) Brush.verticalGradient(listOf(Color.White.copy(.16f), Color(0xFFFF3D8B).copy(alpha=.10f))) else Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent)))
+                    .padding(vertical=8.dp),
                 horizontalAlignment=Alignment.CenterHorizontally
             ) {
-                Icon(
-                    when(item) {
-                        Tab.HOME -> Icons.Rounded.Home
-                        Tab.SEARCH -> Icons.Rounded.Search
-                        Tab.LIBRARY -> Icons.Rounded.LibraryMusic
-                    },
-                    contentDescription = item.label,
-                    tint = if(active) Lavender else Muted
-                )
-                Text(
-                    item.label,
-                    color = if(active) White else Muted,
-                    fontSize=10.sp,
-                    fontWeight=if(active) FontWeight.Bold else FontWeight.Medium
-                )
+                Icon(when(t){Tab.HOME->Icons.Rounded.Home;Tab.SEARCH->Icons.Rounded.Search;Tab.LIBRARY->Icons.Rounded.LibraryMusic},null,tint=if(active)Color(0xFFFF3D8B) else Color(0xFF9595B2))
+                Text(t.label,color=if(active)Color(0xFFF0F0F8) else Color(0xFF9595B2),fontSize=10.sp,fontWeight=if(active)FontWeight.Bold else FontWeight.Medium)
             }
         }
     }

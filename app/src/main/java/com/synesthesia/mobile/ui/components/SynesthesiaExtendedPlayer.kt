@@ -34,7 +34,7 @@ fun SynesthesiaExtendedPlayer(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.30f))
+            .background(Color.Black.copy(alpha = 0.6f))
             .systemBarsPadding()
             .padding(16.dp),
         contentAlignment = Alignment.Center
