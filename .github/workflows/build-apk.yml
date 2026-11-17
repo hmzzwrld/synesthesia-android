@@ -22,6 +22,7 @@ jobs:
           mkdir -p /tmp/synesthesia-update
           unzip -q SYNESTHESIA-Website-Reference-Native-Android.zip -d /tmp/synesthesia-update
           cp -a /tmp/synesthesia-update/synesthesia-android-main/. .
+          git checkout -- .github/workflows/build-apk.yml
           rm SYNESTHESIA-Website-Reference-Native-Android.zip
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
