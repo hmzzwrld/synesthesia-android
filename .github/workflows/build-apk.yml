@@ -1,35 +1,53 @@
+
 name: Build SYNESTHESIA Native APK
 
 on:
   push:
     branches: [ main ]
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Code
+    - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Set up JDK 17
+    - name: Extract updated project
+      run: |
+        if [ -f "SYNESTHESIA-Website-Reference-Native-Android.zip" ]; then
+          mkdir -p /tmp/synesthesia-update
+          unzip -q SYNESTHESIA-Website-Reference-Native-Android.zip -d /tmp/synesthesia-update
+          cp -a /tmp/synesthesia-update/synesthesia-android-main/. .
+          rm SYNESTHESIA-Website-Reference-Native-Android.zip
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Apply updated SYNESTHESIA Android project [skip ci]"
+          git push
+        fi
+
+    - name: Set up JDK
       uses: actions/setup-java@v5
       with:
-        distribution: 'temurin'
+        distribution: temurin
         java-version: '17'
 
     - name: Setup Android SDK
       uses: android-actions/setup-android@v4
       with:
-        packages: 'platform-tools platforms;android-36 build-tools;34.0.0'
+        packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
 
-    - name: Generate Gradle Wrapper & Build APK
+    - name: Build APK
       run: |
         gradle wrapper --gradle-version 8.7
         chmod +x gradlew
         ./gradlew assembleDebug
 
-    - name: Upload APK Artifact
+    - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: synesthesia-debug-apk
