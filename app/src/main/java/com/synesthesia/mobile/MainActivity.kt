@@ -295,7 +295,7 @@ private fun SynesthesiaApp(player: ExoPlayer) {
                     }
                     Navigation(tab,{tab=it}, glassHaze)
                 }
-                if(expandedPlayer && selected!=null) PlayerSheet(selected!!, playing, { if(player.isPlaying) player.pause() else player.play() }, {player.seekToPreviousMediaItem()}, {player.seekToNextMediaItem()}, {expandedPlayer=false}, player, tracks)
+                if(expandedPlayer && selected!=null) PlayerSheet(selected!!, playing, { if(player.isPlaying) player.pause() else player.play() }, {player.seekToPreviousMediaItem()}, {player.seekToNextMediaItem()}, {expandedPlayer=false}, player, tracks, { expandedPlayer=false; liquidQueueOpen=true })
                 AnimatedVisibility(visible=liquidQueueOpen,enter=fadeIn(tween(160))+slideInVertically(spring(dampingRatio=.78f,stiffness=360f)){it/5},exit=fadeOut(tween(130))+slideOutVertically(tween(180)){it/3}) {
                     LiquidQueueSheet(player, tracks, displayedPalette, glassHaze, { liquidQueueOpen=false })
                 }
@@ -470,8 +470,8 @@ private fun SynesthesiaApp(player: ExoPlayer) {
         // Match the website's floating 420px / 48dvh queue, with the player-connected droplets.
         Box(
             Modifier.align(Alignment.BottomCenter)
-                .fillMaxWidth().padding(horizontal=12.dp).padding(bottom=270.dp)
-                .widthIn(max=420.dp).fillMaxHeight(.44f)
+                .fillMaxWidth().padding(horizontal=12.dp).padding(bottom=260.dp)
+                .widthIn(max=420.dp).fillMaxHeight(.50f)
         ) {
             Box(Modifier.align(Alignment.BottomCenter).offset(y=12.dp).size(16.dp).clip(CircleShape)
                 .background(Brush.linearGradient(listOf(Color.White.copy(.22f),Color(0xFF1E1A30).copy(.72f))))
@@ -623,105 +623,106 @@ private fun SynesthesiaApp(player: ExoPlayer) {
     next: () -> Unit,
     close: () -> Unit,
     player: ExoPlayer,
-    queue: List<LocalTrack>
+    queue: List<LocalTrack>,
+    openQueue: () -> Unit
 ) {
     var progress by remember { mutableFloatStateOf(0f) }
-    var showQueue by remember { mutableStateOf(false) }
     var shuffle by remember { mutableStateOf(player.shuffleModeEnabled) }
     var repeat by remember { mutableIntStateOf(player.repeatMode) }
     LaunchedEffect(player) {
         while (true) {
             val duration = player.duration
             if (duration > 0) progress = (player.currentPosition.toFloat() / duration).coerceIn(0f, 1f)
-            kotlinx.coroutines.delay(400)
+            kotlinx.coroutines.delay(350)
         }
     }
-    Box(Modifier.fillMaxSize().background(Color(0xFF05050D))) {
+    val nextTrack = queue.getOrNull(player.currentMediaItemIndex + 1)
+    val panelShape = RoundedCornerShape(48.dp)
+    Box(Modifier.fillMaxSize().background(Color(0xFF070711).copy(.42f))) {
+        // Artwork-derived atmosphere sits behind the same liquid surface used by the website.
         if (track.artwork != null) {
-            AsyncImage(
-                model=track.artwork,
-                contentDescription=null,
-                contentScale=ContentScale.Crop,
-                modifier=Modifier.fillMaxSize().blur(28.dp),
-                alpha=0.72f
-            )
+            AsyncImage(model=track.artwork, contentDescription=null, contentScale=ContentScale.Crop,
+                modifier=Modifier.fillMaxSize().blur(64.dp), alpha=.48f)
         }
-        Box(Modifier.fillMaxSize().background(Color(0xFF05050D).copy(alpha=.64f)))
-        Box(Modifier.fillMaxSize().clickable(onClick=close).padding(12.dp), contentAlignment=Alignment.Center) {
-        Column(
-            Modifier.fillMaxWidth().fillMaxHeight(.94f)
-                .glassSurface(RoundedCornerShape(34.dp), elevation=24.dp, isDarkTheme=true)
-                .clickable {}.padding(horizontal=20.dp, vertical=16.dp),
-            horizontalAlignment=Alignment.CenterHorizontally,
-            verticalArrangement=Arrangement.spacedBy(10.dp)
-        ) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.SpaceBetween, verticalAlignment=Alignment.CenterVertically) {
-                IconButton(onClick=close) { Icon(Icons.Rounded.KeyboardArrowDown, "Close player", tint=White) }
-                Column(horizontalAlignment=Alignment.CenterHorizontally) {
-                    Text("NOW PLAYING", color=Color(0xFFFF3D8B), letterSpacing=2.sp, fontSize=10.sp, fontWeight=FontWeight.Bold)
-                    Text(if (showQueue) "LIQUID QUEUE" else "YOUR SOUND. YOUR WORLD.", color=Muted, fontSize=9.sp, letterSpacing=1.sp)
+        Box(Modifier.fillMaxSize().background(Brush.radialGradient(
+            listOf(Color(0xFF7655A8).copy(.22f), Color(0xFF080812).copy(.78f)), radius=1100f
+        )))
+        Box(Modifier.fillMaxSize().clickable(onClick=close).padding(horizontal=12.dp, vertical=16.dp), contentAlignment=Alignment.Center) {
+            Column(
+                Modifier.fillMaxWidth().fillMaxHeight(.96f).widthIn(max=440.dp)
+                    .shadow(26.dp,panelShape,ambientColor=Color(0xFF7655A8).copy(.18f),spotColor=Color.Black.copy(.42f))
+                    .clip(panelShape)
+                    .background(Color(0xFF171522).copy(.72f))
+                    .background(Brush.linearGradient(listOf(Color.White.copy(.18f),Color.White.copy(.045f),Color(0xFF090914).copy(.34f))))
+                    .border(1.dp,Brush.verticalGradient(listOf(Color.White.copy(.34f),Color.White.copy(.12f),Color.White.copy(.07f))),panelShape)
+                    .clickable {}.padding(horizontal=22.dp, vertical=17.dp),
+                horizontalAlignment=Alignment.CenterHorizontally,
+                verticalArrangement=Arrangement.spacedBy(9.dp)
+            ) {
+                // Website header: close orb, centred Now Playing label and queue/menu action.
+                Row(Modifier.fillMaxWidth().height(42.dp),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
+                    Box(Modifier.size(36.dp).clip(CircleShape).background(Color.White.copy(.10f)).border(1.dp,Color.White.copy(.16f),CircleShape).clickable(onClick=close),contentAlignment=Alignment.Center) {
+                        Icon(Icons.Rounded.KeyboardArrowDown,"Close player",tint=White,modifier=Modifier.size(25.dp))
+                    }
+                    Column(horizontalAlignment=Alignment.CenterHorizontally) {
+                        Text("NOW PLAYING",color=Color(0xFFFF3D8B),letterSpacing=2.1.sp,fontSize=10.sp,fontWeight=FontWeight.Bold)
+                        Text("YOUR SOUND. YOUR WORLD.",color=Muted.copy(.9f),fontSize=9.sp,letterSpacing=1.35.sp)
+                    }
+                    Box(Modifier.size(36.dp).clip(CircleShape).background(Color.White.copy(.10f)).border(1.dp,Color.White.copy(.16f),CircleShape).clickable(onClick=openQueue),contentAlignment=Alignment.Center) {
+                        Icon(Icons.Rounded.QueueMusic,"Queue",tint=White,modifier=Modifier.size(21.dp))
+                    }
                 }
-                IconButton(onClick={ showQueue = !showQueue }) { Icon(if(showQueue) Icons.Rounded.Album else Icons.Rounded.QueueMusic, "Toggle queue", tint=White) }
-            }
-            if (showQueue) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment=Alignment.CenterVertically, horizontalArrangement=Arrangement.SpaceBetween) {
-                    Text("Up Next", color=White, fontSize=22.sp, fontWeight=FontWeight.Bold)
-                    Text("${queue.size} tracks", color=Muted, fontSize=11.sp)
-                }
-                LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding=PaddingValues(bottom=10.dp), verticalArrangement=Arrangement.spacedBy(3.dp)) {
-                    items(queue) { item ->
-                        val index = queue.indexOf(item)
-                        val active = index == player.currentMediaItemIndex
-                        Row(
-                            Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
-                                .background(if(active) Color.White.copy(.10f) else Color.Transparent)
-                                .clickable { player.seekToDefaultPosition(index); player.play() }
-                                .padding(horizontal=8.dp, vertical=7.dp),
-                            verticalAlignment=Alignment.CenterVertically
-                        ) {
-                            Artwork(item.artwork, 42)
-                            Spacer(Modifier.width(10.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(item.title, color=if(active) Color(0xFFFF3D8B) else White, fontSize=12.sp, fontWeight=FontWeight.SemiBold, maxLines=1, overflow=TextOverflow.Ellipsis)
-                                Text(item.artist, color=Muted, fontSize=10.sp, maxLines=1, overflow=TextOverflow.Ellipsis)
-                            }
-                            if(active) Icon(Icons.Rounded.GraphicEq, null, tint=Color(0xFFFF3D8B))
-                            else Text(formatDuration(item.duration), color=Muted, fontSize=10.sp)
+                // Flexible artwork stage follows the website's square album-art stage.
+                Box(Modifier.weight(1f).fillMaxWidth(),contentAlignment=Alignment.Center) {
+                    BoxWithConstraints(Modifier.fillMaxWidth(),contentAlignment=Alignment.Center) {
+                        val artSide = minOf(maxWidth, maxHeight)
+                        Box(Modifier.size(artSide).clip(RoundedCornerShape(34.dp)).background(Color(0xFF292039))
+                            .shadow(24.dp,RoundedCornerShape(34.dp),ambientColor=Color(0xFFFF3D8B).copy(.16f))) {
+                            if(track.artwork!=null) AsyncImage(model=track.artwork,contentDescription="Album artwork",contentScale=ContentScale.Crop,modifier=Modifier.fillMaxSize())
+                            else Icon(Icons.Rounded.Album,null,tint=Lavender,modifier=Modifier.align(Alignment.Center).size(92.dp))
+                            Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color.White.copy(.18f),Color.Transparent,Color.Black.copy(.12f)))))
+                            Box(Modifier.fillMaxSize().border(1.dp,Color.White.copy(.20f),RoundedCornerShape(34.dp)))
                         }
                     }
                 }
-            } else {
-                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment=Alignment.Center) {
-                    ArtworkLarge(track.artwork)
-                }
-                Column(Modifier.fillMaxWidth(), horizontalAlignment=Alignment.Start) {
-                    Text(track.title, color=White, fontSize=21.sp, fontWeight=FontWeight.Bold, maxLines=1, overflow=TextOverflow.Ellipsis)
-                    Text(track.artist, color=Muted, fontSize=14.sp, maxLines=1, overflow=TextOverflow.Ellipsis)
-                    Text(track.album, color=Color(0xFFFF3D8B).copy(.85f), fontSize=11.sp, maxLines=1, overflow=TextOverflow.Ellipsis)
-                }
-                Slider(
-                    value=progress,
-                    onValueChange={ progress=it; if(player.duration>0) player.seekTo((player.duration*it).toLong()) },
-                    colors=SliderDefaults.colors(thumbColor=Color(0xFFFF3D8B), activeTrackColor=Color(0xFFFF3D8B), inactiveTrackColor=Color.White.copy(.16f))
-                )
-                Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.SpaceBetween) {
-                    Text(formatDuration(player.currentPosition.coerceAtLeast(0)), color=Muted, fontSize=10.sp)
-                    Text(if(player.duration>0) "-${formatDuration((player.duration-player.currentPosition).coerceAtLeast(0))}" else "0:00", color=Muted, fontSize=10.sp)
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.SpaceEvenly, verticalAlignment=Alignment.CenterVertically) {
-                    IconButton(onClick={ shuffle=!shuffle; player.shuffleModeEnabled=shuffle }) { Icon(Icons.Rounded.Shuffle, "Shuffle", tint=if(shuffle) Color(0xFFFF3D8B) else Muted) }
-                    IconButton(onClick=previous) { Icon(Icons.Rounded.SkipPrevious, "Previous", tint=White, modifier=Modifier.size(34.dp)) }
-                    FilledIconButton(toggle, colors=IconButtonDefaults.filledIconButtonColors(containerColor=Color(0xFFFF3D8B), contentColor=Color(0xFF05050D)), modifier=Modifier.size(66.dp)) {
-                        Icon(if(playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, "Play or pause", modifier=Modifier.size(34.dp))
+                // Track identity and album line mirror .np-meta and .np-album.
+                Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(2.dp)) {
+                    Text(track.title,color=White,fontSize=21.sp,fontWeight=FontWeight.Bold,maxLines=1,overflow=TextOverflow.Ellipsis)
+                    Text(track.artist,color=Muted,fontSize=14.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
+                    Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                        Icon(Icons.Rounded.Album,null,tint=Color(0xFFFF3D8B).copy(.85f),modifier=Modifier.size(12.dp))
+                        Text(track.album,color=Color(0xFFFF3D8B).copy(.85f),fontSize=11.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
                     }
-                    IconButton(onClick=next) { Icon(Icons.Rounded.SkipNext, "Next", tint=White, modifier=Modifier.size(34.dp)) }
-                    IconButton(onClick={ repeat=(repeat+1)%3; player.repeatMode=repeat }) { Icon(Icons.Rounded.Repeat, "Repeat", tint=if(repeat!=Player.REPEAT_MODE_OFF) Color(0xFFFF3D8B) else Muted) }
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.Center) {
-                    Text("UP NEXT  ·  ${queue.size} TRACKS", color=Muted, fontSize=9.sp, letterSpacing=1.6.sp)
+                Slider(value=progress,onValueChange={progress=it;if(player.duration>0)player.seekTo((player.duration*it).toLong())},
+                    colors=SliderDefaults.colors(thumbColor=Color(0xFFFF3D8B),activeTrackColor=Color(0xFFFF3D8B),inactiveTrackColor=Color.White.copy(.16f)),
+                    modifier=Modifier.fillMaxWidth().height(25.dp))
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
+                    Text(formatDuration(player.currentPosition.coerceAtLeast(0)),color=Muted,fontSize=10.sp)
+                    Text(if(player.duration>0) "-${formatDuration((player.duration-player.currentPosition).coerceAtLeast(0))}" else "0:00",color=Muted,fontSize=10.sp)
+                }
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically) {
+                    IconButton(onClick={shuffle=!shuffle;player.shuffleModeEnabled=shuffle},modifier=Modifier.size(42.dp)) { Icon(Icons.Rounded.Shuffle,"Shuffle",tint=if(shuffle)Color(0xFFFF3D8B)else Muted,modifier=Modifier.size(21.dp)) }
+                    IconButton(onClick=previous,modifier=Modifier.size(42.dp)) { Icon(Icons.Rounded.SkipPrevious,"Previous",tint=White,modifier=Modifier.size(28.dp)) }
+                    FilledIconButton(toggle,colors=IconButtonDefaults.filledIconButtonColors(containerColor=Color(0xFFFF3D8B),contentColor=Color(0xFF05050D)),modifier=Modifier.size(70.dp)) {
+                        Icon(if(playing)Icons.Rounded.Pause else Icons.Rounded.PlayArrow,"Play or pause",modifier=Modifier.size(36.dp))
+                    }
+                    IconButton(onClick=next,modifier=Modifier.size(42.dp)) { Icon(Icons.Rounded.SkipNext,"Next",tint=White,modifier=Modifier.size(28.dp)) }
+                    IconButton(onClick={repeat=(repeat+1)%3;player.repeatMode=repeat},modifier=Modifier.size(42.dp)) { Icon(Icons.Rounded.Repeat,"Repeat",tint=if(repeat!=Player.REPEAT_MODE_OFF)Color(0xFFFF3D8B)else Muted,modifier=Modifier.size(21.dp)) }
+                }
+                // Website's compact Up Next pill: a real preview of the next queued song.
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(999.dp))
+                    .background(Color.White.copy(.055f)).border(1.dp,Color.White.copy(.12f),RoundedCornerShape(999.dp))
+                    .clickable(onClick=openQueue)
+                    .padding(horizontal=9.dp,vertical=7.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+                    if(nextTrack?.artwork!=null) Artwork(nextTrack.artwork,38) else Box(Modifier.size(38.dp).clip(CircleShape).background(Color.White.copy(.08f)),contentAlignment=Alignment.Center){Icon(Icons.Rounded.Album,null,tint=Muted)}
+                    Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(1.dp)) {
+                        Text("UP NEXT",color=Muted,fontSize=8.sp,letterSpacing=1.5.sp)
+                        Text(nextTrack?.title ?: "End of queue",color=White,fontSize=12.sp,fontWeight=FontWeight.SemiBold,maxLines=1,overflow=TextOverflow.Ellipsis)
+                    }
+                    Icon(Icons.Rounded.KeyboardArrowUp,null,tint=Muted,modifier=Modifier.size(20.dp))
                 }
             }
-        }
         }
     }
 }
