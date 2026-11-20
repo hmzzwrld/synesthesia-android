@@ -29,6 +29,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -713,7 +714,7 @@ private fun SynesthesiaApp(player: ExoPlayer) {
                             Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color.White.copy(.18f),Color.Transparent,Color.Black.copy(.12f)))))
                             Box(Modifier.fillMaxSize().border(1.dp,Color.White.copy(.20f),RoundedCornerShape(34.dp)))
                         }
-                        AnimatedVisibility(visible=smartQueueOpen, modifier=Modifier.align(Alignment.Center), enter=fadeIn(tween(180))+androidx.compose.animation.scaleIn(tween(220)), exit=fadeOut(tween(130))) {
+                        androidx.compose.animation.AnimatedVisibility(visible=smartQueueOpen, modifier=Modifier.align(Alignment.Center), enter=fadeIn(tween(180))+androidx.compose.animation.scaleIn(tween(220)), exit=fadeOut(tween(130))) {
                             Column(Modifier.fillMaxSize().clip(RoundedCornerShape(34.dp)).background(Color(0xE910101B)).border(1.dp,Color.White.copy(.20f),RoundedCornerShape(34.dp)).padding(14.dp)) {
                                 Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween) {
                                     Column { Text("SMART QUEUE",color=accent,fontSize=10.sp,letterSpacing=2.sp,fontWeight=FontWeight.Bold); Text("Playing next",color=White,fontSize=18.sp,fontWeight=FontWeight.Bold) }
