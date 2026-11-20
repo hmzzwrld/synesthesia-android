@@ -470,8 +470,8 @@ private fun SynesthesiaApp(player: ExoPlayer) {
         // Match the website's floating 420px / 48dvh queue, with the player-connected droplets.
         Box(
             Modifier.align(Alignment.BottomCenter)
-                .fillMaxWidth().padding(horizontal=12.dp).padding(bottom=96.dp)
-                .widthIn(max=420.dp).fillMaxHeight(.48f)
+                .fillMaxWidth().padding(horizontal=12.dp).padding(bottom=270.dp)
+                .widthIn(max=420.dp).fillMaxHeight(.44f)
         ) {
             Box(Modifier.align(Alignment.BottomCenter).offset(y=12.dp).size(16.dp).clip(CircleShape)
                 .background(Brush.linearGradient(listOf(Color.White.copy(.22f),Color(0xFF1E1A30).copy(.72f))))
@@ -491,11 +491,11 @@ private fun SynesthesiaApp(player: ExoPlayer) {
                     }
                     .clip(organicShape)
                     // Darker material keeps list content legible while retaining the blurred background.
-                    .background(Color(0xFF0E0C1A).copy(.74f))
+                    .background(Color(0xFF0E0C1A).copy(.46f))
                     .background(Brush.linearGradient(listOf(Color.White.copy(.14f),Color.White.copy(.035f),Color(0xFF0E0C1A).copy(.30f))))
-                    .background(Brush.radialGradient(listOf(palette.first.copy(.24f),Color.Transparent),radius=850f,center=androidx.compose.ui.geometry.Offset(500f,1200f)))
-                    .background(Brush.radialGradient(listOf(palette.second.copy(.14f),Color.Transparent),radius=620f,center=androidx.compose.ui.geometry.Offset(0f,0f)))
-                    .background(Brush.radialGradient(listOf(palette.third.copy(.12f),Color.Transparent),radius=500f,center=androidx.compose.ui.geometry.Offset(300f,-60f)))
+                    .background(Brush.radialGradient(listOf(palette.first.copy(.20f),Color.Transparent),radius=850f,center=androidx.compose.ui.geometry.Offset(500f,1200f)))
+                    .background(Brush.radialGradient(listOf(palette.second.copy(.12f),Color.Transparent),radius=620f,center=androidx.compose.ui.geometry.Offset(0f,0f)))
+                    .background(Brush.radialGradient(listOf(palette.third.copy(.10f),Color.Transparent),radius=500f,center=androidx.compose.ui.geometry.Offset(300f,-60f)))
                     .border(1.dp,Brush.verticalGradient(listOf(Color.White.copy(.42f),Color.White.copy(.17f),Color.White.copy(.07f))),organicShape)
             ) {
                 // Website's lq-sheen: broad top reflection and a faint lower-right reflection.
@@ -506,12 +506,12 @@ private fun SynesthesiaApp(player: ExoPlayer) {
                     Brush.radialGradient(listOf(Color.White.copy(.07f),Color.Transparent),radius=300f,center=androidx.compose.ui.geometry.Offset(900f,1500f))
                 ))
                 Column(
-                    Modifier.fillMaxSize().padding(horizontal=12.dp, vertical=15.dp),
+                    Modifier.fillMaxSize().padding(start=12.dp,end=12.dp,top=22.dp,bottom=12.dp),
                     verticalArrangement=Arrangement.spacedBy(3.dp)
                 ) {
                     // Header mirrors the website: title, count pill, save/clear tools, close orb.
                     Row(
-                        Modifier.fillMaxWidth().padding(horizontal=4.dp, vertical=2.dp),
+                        Modifier.fillMaxWidth().padding(start=16.dp,end=16.dp,bottom=12.dp),
                         verticalAlignment=Alignment.CenterVertically
                     ) {
                         Column(Modifier.weight(1f)) {
@@ -527,39 +527,42 @@ private fun SynesthesiaApp(player: ExoPlayer) {
                             Text("${items.size} tracks",color=Muted,fontSize=11.sp)
                         }
                         Spacer(Modifier.width(7.dp))
-                        IconButton(
-                            onClick={queueBookmarked=!queueBookmarked},
-                            modifier=Modifier.size(36.dp).clip(CircleShape)
+                        Box(
+                            Modifier.size(34.dp).clip(CircleShape)
                                 .background(Color.White.copy(if(queueBookmarked) .16f else .075f))
                                 .border(1.dp,Color.White.copy(.16f),CircleShape)
+                                .clickable { queueBookmarked=!queueBookmarked },
+                            contentAlignment=Alignment.Center
                         ) {
                             Icon(if(queueBookmarked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
-                                "Bookmark queue",tint=if(queueBookmarked) accent else White,modifier=Modifier.size(19.dp))
-                        }
-                        IconButton(
-                            onClick={
-                                for(i in player.mediaItemCount-1 downTo player.currentMediaItemIndex+1) player.removeMediaItem(i)
-                                queueRevision++
-                            },
-                            enabled=player.mediaItemCount>player.currentMediaItemIndex+1,
-                            modifier=Modifier.size(36.dp).clip(CircleShape)
-                                .background(Color.White.copy(.075f))
-                                .border(1.dp,Color.White.copy(.16f),CircleShape)
-                        ) {
-                            Icon(Icons.Rounded.DeleteOutline,"Clear added tracks",tint=White,modifier=Modifier.size(19.dp))
+                                "Bookmark queue",tint=if(queueBookmarked) accent else White,modifier=Modifier.size(18.dp))
                         }
                         Spacer(Modifier.width(7.dp))
-                        IconButton(
-                            onClick=close,
-                            modifier=Modifier.size(42.dp).clip(CircleShape)
+                        Box(
+                            Modifier.size(34.dp).clip(CircleShape)
+                                .background(Color.White.copy(.075f))
+                                .border(1.dp,Color.White.copy(.16f),CircleShape)
+                                .clickable(enabled=player.mediaItemCount>player.currentMediaItemIndex+1) {
+                                    for(i in player.mediaItemCount-1 downTo player.currentMediaItemIndex+1) player.removeMediaItem(i)
+                                    queueRevision++
+                                },
+                            contentAlignment=Alignment.Center
+                        ) {
+                            Icon(Icons.Rounded.DeleteOutline,"Clear added tracks",tint=White,modifier=Modifier.size(18.dp))
+                        }
+                        Spacer(Modifier.width(7.dp))
+                        Box(
+                            Modifier.size(42.dp).clip(CircleShape)
                                 .background(Brush.radialGradient(listOf(Color.White.copy(.25f),Color.White.copy(.055f))))
                                 .border(1.dp,Color.White.copy(.20f),CircleShape)
-                        ) { Icon(Icons.Rounded.Close,"Close queue",tint=White,modifier=Modifier.size(21.dp)) }
+                                .clickable(onClick=close),
+                            contentAlignment=Alignment.Center
+                        ) { Icon(Icons.Rounded.Close,"Close queue",tint=White,modifier=Modifier.size(20.dp)) }
                     }
                     LazyColumn(
                         Modifier.weight(1f).fillMaxWidth(),
                         verticalArrangement=Arrangement.spacedBy(2.dp),
-                        contentPadding=PaddingValues(top=7.dp,bottom=8.dp)
+                        contentPadding=PaddingValues(start=4.dp,top=2.dp,end=4.dp,bottom=8.dp)
                     ) {
                         items(items.size,key={index -> items[index].id}) { index ->
                             val item=items[index]
