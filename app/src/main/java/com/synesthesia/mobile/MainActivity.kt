@@ -292,16 +292,17 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                     painter = painterResource(id = R.drawable.synesthesia_background),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize().blur(1.2.dp),
-                    alpha = if (lightTheme) 0.30f else 0.82f
+                    modifier = Modifier.fillMaxSize().blur(9.dp),
+                    alpha = if (lightTheme) 0.30f else 0.96f
                 )
                 if (lightTheme) Box(Modifier.fillMaxSize().background(Color(0xFFF4F2F8).copy(alpha=.58f)))
+                else Box(Modifier.fillMaxSize().background(Color(0xFF02070B).copy(alpha=.18f)))
                 Box(
                     Modifier.fillMaxSize().background(
                         Brush.linearGradient(
-                            0f to ambientPalette.third.copy(alpha = 0.20f),
-                            0.48f to Color(0xFF05050D).copy(alpha = 0.18f),
-                            1f to ambientPalette.first.copy(alpha = 0.12f)
+                            0f to ambientPalette.third.copy(alpha = 0.08f),
+                            0.48f to Color(0xFF05050D).copy(alpha = 0.24f),
+                            1f to ambientPalette.first.copy(alpha = 0.07f)
                         )
                     )
                 )
@@ -309,25 +310,25 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                 // so place the album-reactive colour wash ABOVE the artwork to keep it visible.
                 Box(Modifier.fillMaxSize().background(
                     Brush.radialGradient(
-                        colors = listOf(Color(0xFF7C3AED).copy(alpha = 0.13f), Color.Transparent),
+                        colors = listOf(Color(0xFF4656B8).copy(alpha = 0.055f), Color.Transparent),
                         center = androidx.compose.ui.geometry.Offset(340f, 720f), radius = 1450f
                     )
                 ))
                 Box(Modifier.fillMaxSize().background(
                     Brush.radialGradient(
-                        colors = listOf(displayedPalette.first.copy(alpha = 0.14f), Color.Transparent),
+                        colors = listOf(displayedPalette.first.copy(alpha = 0.085f), Color.Transparent),
                         center = androidx.compose.ui.geometry.Offset(180f, 520f), radius = 1050f
                     )
                 ))
                 Box(Modifier.fillMaxSize().background(
                     Brush.radialGradient(
-                        colors = listOf(displayedPalette.second.copy(alpha = 0.09f), Color.Transparent),
+                        colors = listOf(displayedPalette.second.copy(alpha = 0.06f), Color.Transparent),
                         center = androidx.compose.ui.geometry.Offset(760f, 1180f), radius = 900f
                     )
                 ))
                 Box(Modifier.fillMaxSize().background(
                     Brush.radialGradient(
-                        colors = listOf(displayedPalette.third.copy(alpha = 0.12f), Color.Transparent),
+                        colors = listOf(displayedPalette.third.copy(alpha = 0.065f), Color.Transparent),
                         center = androidx.compose.ui.geometry.Offset(520f, 1680f), radius = 1000f
                     )
                 ))
