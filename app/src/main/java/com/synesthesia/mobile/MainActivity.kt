@@ -16,6 +16,8 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -24,6 +26,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -37,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
@@ -96,6 +100,7 @@ private fun SynesthesiaApp(player: ExoPlayer) {
     var selected by remember { mutableStateOf<LocalTrack?>(null) }
     var playing by remember { mutableStateOf(false) }
     var expandedPlayer by remember { mutableStateOf(false) }
+    var liquidQueueOpen by remember { mutableStateOf(false) }
     var scanning by remember { mutableStateOf(false) }
     var scanMessage by remember { mutableStateOf("Scan your device to find music") }
     var playCounts by remember { mutableStateOf<Map<Long, Int>>(emptyMap()) }
@@ -174,7 +179,7 @@ private fun SynesthesiaApp(player: ExoPlayer) {
                     painter = painterResource(id = R.drawable.synesthesia_background),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().blur(1.2.dp),
                     alpha = 0.66f
                 )
                 Box(
@@ -212,7 +217,7 @@ private fun SynesthesiaApp(player: ExoPlayer) {
                     }
                     AnimatedContent(
                         tab,
-                        transitionSpec={ fadeIn(tween(220))+slideInVertically { it/18 } togetherWith fadeOut(tween(150))+slideOutVertically { -it/18 } },
+                        transitionSpec={ fadeIn(tween(240))+slideInVertically(spring(dampingRatio=.82f,stiffness=260f)) { it/14 } togetherWith fadeOut(tween(150))+slideOutVertically(tween(180)) { -it/20 } },
                         label="main-tabs",
                         modifier=Modifier.weight(1f).fillMaxWidth()
                     ) { destination ->
@@ -229,12 +234,15 @@ private fun SynesthesiaApp(player: ExoPlayer) {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(9.dp)
                 ) {
-                    AnimatedVisibility(selected!=null, enter=fadeIn()+slideInVertically { it/2 }, exit=fadeOut()+slideOutVertically { it/2 }) {
-                        MiniPlayer(selected, playing, { if(player.isPlaying) player.pause() else player.play() }, {expandedPlayer=true})
+                    AnimatedVisibility(selected!=null, enter=fadeIn()+slideInVertically { it/3 }, exit=fadeOut()+slideOutVertically { it/3 }) {
+                        MiniPlayer(selected, playing, { if(player.isPlaying) player.pause() else player.play() }, {expandedPlayer=true}, { liquidQueueOpen=true })
                     }
                     Navigation(tab,{tab=it})
                 }
                 if(expandedPlayer && selected!=null) PlayerSheet(selected!!, playing, { if(player.isPlaying) player.pause() else player.play() }, {player.seekToPreviousMediaItem()}, {player.seekToNextMediaItem()}, {expandedPlayer=false}, player, tracks)
+                AnimatedVisibility(visible=liquidQueueOpen,enter=fadeIn(tween(160))+slideInVertically(spring(dampingRatio=.78f,stiffness=360f)){it/5},exit=fadeOut(tween(130))+slideOutVertically(tween(180)){it/3}) {
+                    LiquidQueueSheet(player, tracks, ambientPalette.first, { liquidQueueOpen=false })
+                }
                 if(!hasPermission) PermissionPrompt { launcher.launch(permission) }
                 if(scanning) Box(Modifier.fillMaxSize().background(Color.Black.copy(.35f)), contentAlignment=Alignment.Center) { CircularProgressIndicator(color=ambientPalette.first) }
             }
@@ -269,10 +277,113 @@ private fun SynesthesiaApp(player: ExoPlayer) {
     } }
 }
 
-@Composable private fun TrackRow(track:LocalTrack,onPlay:(LocalTrack)->Unit,plays:Int?=null,rank:Int?=null) { Row(Modifier.fillMaxWidth().clickable{onPlay(track)}.padding(vertical=7.dp),verticalAlignment=Alignment.CenterVertically) { Artwork(track.artwork,46); Spacer(Modifier.width(11.dp)); Column(Modifier.weight(1f)) { Text((rank?.let{"$it. "}?:"")+track.title,color=White,fontWeight=FontWeight.SemiBold,fontSize=13.sp,maxLines=1,overflow=TextOverflow.Ellipsis); Text(track.artist+" · "+track.album,color=Muted,fontSize=11.sp,maxLines=1,overflow=TextOverflow.Ellipsis) }; if(plays!=null) Text("${plays}×",color=Lavender,fontSize=11.sp); Icon(Icons.Rounded.PlayCircleOutline,null,tint=Lavender,modifier=Modifier.padding(start=8.dp)) } }
+@Composable private fun TrackRow(track:LocalTrack,onPlay:(LocalTrack)->Unit,plays:Int?=null,rank:Int?=null) {
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(19.dp))
+        .background(Brush.horizontalGradient(listOf(Color.White.copy(.075f),Color.White.copy(.025f),Color.Transparent)))
+        .border(.6.dp,Color.White.copy(.065f),RoundedCornerShape(19.dp))
+        .clickable{onPlay(track)}.padding(horizontal=9.dp,vertical=9.dp),verticalAlignment=Alignment.CenterVertically) {
+        Box(Modifier.size(48.dp).clip(RoundedCornerShape(15.dp)).border(1.dp,Color.White.copy(.14f),RoundedCornerShape(15.dp))) { Artwork(track.artwork,48) }
+        Spacer(Modifier.width(11.dp))
+        Column(Modifier.weight(1f)) {
+            Text((rank?.let{"$it  ·  "}?:"")+track.title,color=White,fontWeight=FontWeight.SemiBold,fontSize=13.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
+            Text(track.artist+" · "+track.album,color=Muted,fontSize=10.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
+        }
+        if(plays!=null) Text("${plays}×",color=Lavender,fontSize=10.sp)
+        Box(Modifier.padding(start=8.dp).size(31.dp).clip(CircleShape).background(Color.White.copy(.075f)).border(1.dp,Color.White.copy(.12f),CircleShape),contentAlignment=Alignment.Center) {
+            Icon(Icons.Rounded.PlayArrow,null,tint=Lavender,modifier=Modifier.size(19.dp))
+        }
+    }
+}
 @Composable private fun CollectionRow(title:String,subtitle:String,detail:String,art:Uri?,click:()->Unit){ Row(Modifier.fillMaxWidth().clickable(onClick=click).padding(vertical=8.dp),verticalAlignment=Alignment.CenterVertically){Artwork(art,50);Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(title,color=White,fontWeight=FontWeight.SemiBold);Text(subtitle,color=Muted,fontSize=11.sp)};Text(detail,color=Muted,fontSize=10.sp)} }
 @Composable private fun Artwork(uri:Uri?,size:Int){ Box(Modifier.size(size.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF282139)),contentAlignment=Alignment.Center){ if(uri!=null) AsyncImage(uri,null,Modifier.fillMaxSize()) else Icon(Icons.Rounded.Album,null,tint=Lavender,modifier=Modifier.size((size/2).dp)) } }
-@Composable private fun MiniPlayer(track:LocalTrack?,playing:Boolean,toggle:()->Unit,expand:()->Unit){ if(track==null)return; Row(Modifier.widthIn(max=390.dp).fillMaxWidth().glassSurface(RoundedCornerShape(999.dp), elevation=18.dp, isDarkTheme=true).clickable(onClick=expand).padding(horizontal=13.dp, vertical=9.dp),verticalAlignment=Alignment.CenterVertically){Artwork(track.artwork,38);Spacer(Modifier.width(10.dp));Column(Modifier.weight(1f)){Text(track.title,color=White,fontSize=12.sp,fontWeight=FontWeight.SemiBold,maxLines=1);Text(track.artist,color=Muted,fontSize=10.sp,maxLines=1)};IconButton(toggle){Icon(if(playing)Icons.Rounded.Pause else Icons.Rounded.PlayArrow,null,tint=White)} } }
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable private fun MiniPlayer(track:LocalTrack?,playing:Boolean,toggle:()->Unit,expand:()->Unit,openQueue:()->Unit){
+    if(track==null)return
+    Row(
+        Modifier.widthIn(max=320.dp).fillMaxWidth().animateContentSize(spring(dampingRatio=.78f, stiffness=520f))
+            .shadow(18.dp, RoundedCornerShape(30.dp), ambientColor=Color.Black.copy(.42f), spotColor=Color.Black.copy(.55f))
+            .clip(RoundedCornerShape(30.dp))
+            .background(Brush.linearGradient(listOf(Color.White.copy(.22f),Color(0xFF28233B).copy(.82f),Color(0xFF11101C).copy(.92f))))
+            .background(Brush.radialGradient(listOf(Color.White.copy(.19f),Color.Transparent), radius=300f))
+            .border(1.dp,Brush.verticalGradient(listOf(Color.White.copy(.48f),Color.White.copy(.12f),Color.White.copy(.06f))),RoundedCornerShape(30.dp))
+            .combinedClickable(onClick=expand,onLongClick=openQueue)
+            .padding(start=9.dp,end=7.dp,top=7.dp,bottom=7.dp),
+        verticalAlignment=Alignment.CenterVertically
+    ) {
+        Box(Modifier.size(38.dp).clip(RoundedCornerShape(13.dp)).border(1.dp,Color.White.copy(.25f),RoundedCornerShape(13.dp))) { Artwork(track.artwork,38) }
+        Spacer(Modifier.width(9.dp))
+        Column(Modifier.weight(1f).padding(vertical=2.dp)) {
+            Text(track.title,color=White,fontSize=12.sp,fontWeight=FontWeight.SemiBold,maxLines=2,overflow=TextOverflow.Ellipsis,lineHeight=14.sp)
+            Text(track.artist,color=Muted,fontSize=10.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
+        }
+        IconButton(onClick=openQueue,modifier=Modifier.size(34.dp)) { Icon(Icons.Rounded.QueueMusic,"Open Liquid Queue",tint=Lavender,modifier=Modifier.size(19.dp)) }
+        IconButton(toggle,modifier=Modifier.size(36.dp)) { Icon(if(playing)Icons.Rounded.Pause else Icons.Rounded.PlayArrow,"Play or pause",tint=White,modifier=Modifier.size(23.dp)) }
+    }
+}
+
+@Composable private fun LiquidQueueSheet(player:ExoPlayer, library:List<LocalTrack>, accent:Color, close:()->Unit) {
+    var queueRevision by remember { mutableIntStateOf(0) }
+    val items = remember(player, library, queueRevision) {
+        (0 until player.mediaItemCount).mapNotNull { i ->
+            val id=player.getMediaItemAt(i).mediaId.toLongOrNull()
+            library.firstOrNull { it.id==id }
+        }
+    }
+    Box(Modifier.fillMaxSize().background(Color.Black.copy(.38f)).clickable(onClick=close),contentAlignment=Alignment.BottomCenter) {
+        Column(
+            Modifier.fillMaxWidth().fillMaxHeight(.58f).padding(horizontal=12.dp).padding(bottom=8.dp)
+                .shadow(28.dp,RoundedCornerShape(topStart=38.dp,topEnd=38.dp,bottomStart=30.dp,bottomEnd=30.dp))
+                .clip(RoundedCornerShape(topStart=38.dp,topEnd=38.dp,bottomStart=30.dp,bottomEnd=30.dp))
+                .background(Brush.radialGradient(listOf(accent.copy(.22f),Color.Transparent),radius=650f))
+                .background(Brush.linearGradient(listOf(Color.White.copy(.19f),Color(0xFF211C31).copy(.94f),Color(0xFF100F1B).copy(.98f))))
+                .border(1.dp,Brush.verticalGradient(listOf(Color.White.copy(.42f),Color.White.copy(.12f))),RoundedCornerShape(topStart=38.dp,topEnd=38.dp,bottomStart=30.dp,bottomEnd=30.dp))
+                .clickable(onClick={}).padding(horizontal=15.dp,vertical=14.dp),
+            verticalArrangement=Arrangement.spacedBy(8.dp)
+        ) {
+            Box(Modifier.align(Alignment.CenterHorizontally).width(38.dp).height(4.dp).clip(CircleShape).background(Color.White.copy(.38f)))
+            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween) {
+                Column {
+                    Text("LIQUID QUEUE",color=accent,fontSize=9.sp,fontWeight=FontWeight.Bold,letterSpacing=2.sp)
+                    Text("Up Next",color=White,fontSize=23.sp,fontWeight=FontWeight.Bold)
+                }
+                Row(verticalAlignment=Alignment.CenterVertically) {
+                    Text("${items.size} tracks",color=Muted,fontSize=11.sp)
+                    IconButton(onClick=close) { Icon(Icons.Rounded.Close,"Close queue",tint=White) }
+                }
+            }
+            Row(Modifier.fillMaxWidth().padding(bottom=2.dp),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
+                Text("NOW PLAYING & UP NEXT",color=Muted,fontSize=9.sp,letterSpacing=1.4.sp)
+                TextButton(onClick={ for(i in player.mediaItemCount-1 downTo player.currentMediaItemIndex+1) player.removeMediaItem(i); queueRevision++ },enabled=player.mediaItemCount>player.currentMediaItemIndex+1) { Text("Clear upcoming",color=accent,fontSize=11.sp) }
+            }
+            LazyColumn(Modifier.weight(1f).fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(5.dp),contentPadding=PaddingValues(bottom=8.dp)) {
+                items(items.size,key={index -> items[index].id}) { index ->
+                    val item=items[index]
+                    val current=index==player.currentMediaItemIndex
+                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp))
+                        .background(if(current) Brush.horizontalGradient(listOf(accent.copy(.28f),Color.White.copy(.055f))) else Brush.horizontalGradient(listOf(Color.White.copy(.055f),Color.Transparent)))
+                        .border(if(current)1.dp else .5.dp,if(current)Color.White.copy(.22f) else Color.White.copy(.055f),RoundedCornerShape(22.dp))
+                        .clickable { player.seekToDefaultPosition(index); player.play() }
+                        .padding(horizontal=9.dp,vertical=8.dp),verticalAlignment=Alignment.CenterVertically) {
+                        Box(Modifier.size(44.dp).clip(CircleShape).border(1.dp,Color.White.copy(.2f),CircleShape)) { Artwork(item.artwork,44) }
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(item.title,color=if(current) White else White.copy(.92f),fontSize=13.sp,fontWeight=FontWeight.SemiBold,maxLines=2,overflow=TextOverflow.Ellipsis)
+                            Text(item.artist,color=Muted,fontSize=10.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
+                        }
+                        if(current) Icon(Icons.Rounded.GraphicEq,null,tint=accent,modifier=Modifier.padding(horizontal=5.dp))
+                        else Column {
+                            IconButton(onClick={if(index>player.currentMediaItemIndex+1) { player.moveMediaItem(index,index-1); queueRevision++ }},modifier=Modifier.size(26.dp),enabled=index>player.currentMediaItemIndex+1) { Icon(Icons.Rounded.KeyboardArrowUp,"Move up",tint=Muted,modifier=Modifier.size(18.dp)) }
+                            IconButton(onClick={if(index<player.mediaItemCount-1) { player.moveMediaItem(index,index+1); queueRevision++ }},modifier=Modifier.size(26.dp),enabled=index<player.mediaItemCount-1) { Icon(Icons.Rounded.KeyboardArrowDown,"Move down",tint=Muted,modifier=Modifier.size(18.dp)) }
+                        }
+                    }
+                }
+            }
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Color.White.copy(.055f)).padding(horizontal=12.dp,vertical=9.dp),verticalAlignment=Alignment.CenterVertically) {
+                Icon(Icons.Rounded.Info,null,tint=Muted,modifier=Modifier.size(15.dp)); Spacer(Modifier.width(8.dp)); Text("Long-press the mini-player or tap the queue icon to return here.",color=Muted,fontSize=10.sp,maxLines=2)
+            }
+        }
+    }
+}
 @Composable private fun PlayerSheet(
     track: LocalTrack,
     playing: Boolean,
@@ -391,23 +502,27 @@ private fun formatDuration(ms: Long): String {
 
 @Composable private fun ArtworkLarge(uri:Uri?){ Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(24.dp)).background(Color(0xFF292039)),contentAlignment=Alignment.Center){if(uri!=null)AsyncImage(uri,null,Modifier.fillMaxSize())else Icon(Icons.Rounded.Album,null,tint=Lavender,modifier=Modifier.size(100.dp))} }
 @Composable private fun Navigation(tab:Tab,select:(Tab)->Unit){
-    Row(
-        Modifier.widthIn(max=340.dp).fillMaxWidth()
-            .glassSurface(RoundedCornerShape(999.dp), elevation=20.dp, isDarkTheme=true)
-            .padding(horizontal=7.dp, vertical=6.dp),
-        horizontalArrangement=Arrangement.SpaceEvenly,
-        verticalAlignment=Alignment.CenterVertically
+    val index=Tab.values().indexOf(tab)
+    BoxWithConstraints(
+        Modifier.widthIn(max=360.dp).fillMaxWidth().height(62.dp)
+            .shadow(13.dp,RoundedCornerShape(999.dp),ambientColor=Color.Black.copy(.30f),spotColor=Color.Black.copy(.36f))
+            .clip(RoundedCornerShape(999.dp))
+            .background(Color(0xD91B1928))
+            .border(1.dp,Brush.verticalGradient(listOf(Color.White.copy(.27f),Color.White.copy(.09f))),RoundedCornerShape(999.dp))
+            .padding(horizontal=7.dp,vertical=6.dp)
     ) {
-        Tab.values().forEach { t ->
-            val active = tab == t
-            Column(
-                Modifier.weight(1f).clip(RoundedCornerShape(999.dp)).clickable { select(t) }
-                    .background(if(active) Brush.verticalGradient(listOf(Color.White.copy(.16f), Color(0xFFFF3D8B).copy(alpha=.10f))) else Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent)))
-                    .padding(vertical=8.dp),
-                horizontalAlignment=Alignment.CenterHorizontally
-            ) {
-                Icon(when(t){Tab.HOME->Icons.Rounded.Home;Tab.SEARCH->Icons.Rounded.Search;Tab.LIBRARY->Icons.Rounded.LibraryMusic},null,tint=if(active)Color(0xFFFF3D8B) else Color(0xFF9595B2))
-                Text(t.label,color=if(active)Color(0xFFF0F0F8) else Color(0xFF9595B2),fontSize=10.sp,fontWeight=if(active)FontWeight.Bold else FontWeight.Medium)
+        val itemWidth=maxWidth/3
+        val indicatorX by animateDpAsState(targetValue=itemWidth*index,animationSpec=spring(dampingRatio=.72f,stiffness=420f),label="nav-liquid-position")
+        Box(Modifier.offset(x=indicatorX).width(itemWidth).fillMaxHeight().padding(horizontal=3.dp).clip(RoundedCornerShape(999.dp))
+            .background(Brush.verticalGradient(listOf(Color.White.copy(.18f),Color(0xFFFF3D8B).copy(.10f),Color.White.copy(.045f))))
+            .border(1.dp,Color.White.copy(.13f),RoundedCornerShape(999.dp)))
+        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+            Tab.values().forEach { t ->
+                val active=tab==t
+                Column(Modifier.weight(1f).clip(RoundedCornerShape(999.dp)).clickable { select(t) }.padding(vertical=8.dp),horizontalAlignment=Alignment.CenterHorizontally) {
+                    Icon(when(t){Tab.HOME->Icons.Rounded.Home;Tab.SEARCH->Icons.Rounded.Search;Tab.LIBRARY->Icons.Rounded.LibraryMusic},null,tint=if(active)Color(0xFFFF6BA7) else Color(0xFFAAA3BD))
+                    Text(t.label,color=if(active)White else Color(0xFFAAA3BD),fontSize=10.sp,fontWeight=if(active)FontWeight.Bold else FontWeight.Medium)
+                }
             }
         }
     }

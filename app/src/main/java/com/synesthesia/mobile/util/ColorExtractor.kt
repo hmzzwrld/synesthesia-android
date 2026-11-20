@@ -68,9 +68,7 @@ object ColorExtractor {
                 val max = rgb.maxOrNull() ?: 0f
                 val min = rgb.minOrNull() ?: 0f
                 if (max < 28f || min > 235f) continue
-                val key = ((rgb[0].toInt() shr 5) shl 6) or
-                    ((rgb[1].toInt() shr 5) shl 3) or
-                    (rgb[2].toInt() shr 5)
+                val key = rgb.joinToString(",") { (it.toInt() shr 5).toString() }
                 val weight = 1f + (max - min) / 80f
                 val bin = buckets[key]
                 if (bin == null) buckets[key] = Pair(FloatArray(3) { rgb[it] * weight }, weight)
