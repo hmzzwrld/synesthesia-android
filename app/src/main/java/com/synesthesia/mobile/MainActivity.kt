@@ -1,6 +1,7 @@
 package com.synesthesia.mobile
 
 import android.Manifest
+import android.app.PendingIntent
 import android.media.MediaMetadataRetriever
 import android.media.audiofx.Equalizer
 import android.content.ContentUris
@@ -96,6 +97,11 @@ private enum class LibraryTab(val label: String) { SONGS("Songs"), ALBUMS("Album
 class MainActivity : ComponentActivity() {
     private var player: ExoPlayer? = null
     private var mediaControllerFuture: ListenableFuture<MediaController>? = null
+    private val openPlayerRequest = mutableStateOf(false)
+
+    companion object {
+        const val EXTRA_OPEN_PLAYER = "com.synesthesia.mobile.OPEN_EXPANDED_PLAYER"
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -113,8 +119,16 @@ class MainActivity : ComponentActivity() {
         mediaControllerFuture = MediaController.Builder(this, token).buildAsync().also { future ->
             future.addListener({ runCatching { future.get() } }, ContextCompat.getMainExecutor(this))
         }
-        setContent { SynesthesiaApp(player!!) }
+        openPlayerRequest.value = intent?.getBooleanExtra(EXTRA_OPEN_PLAYER, false) == true
+        setContent { SynesthesiaApp(player!!, openPlayerRequest.value) { openPlayerRequest.value = false } }
     }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.getBooleanExtra(EXTRA_OPEN_PLAYER, false)) openPlayerRequest.value = true
+    }
+
     override fun onDestroy() {
         mediaControllerFuture?.let { MediaController.releaseFuture(it) }
         mediaControllerFuture = null
@@ -124,7 +138,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun SynesthesiaApp(player: ExoPlayer) {
+private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consumeOpenPlayerRequest: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
     var tracks by remember { mutableStateOf<List<LocalTrack>>(emptyList()) }
@@ -145,6 +159,7 @@ private fun SynesthesiaApp(player: ExoPlayer) {
     var recentIds by remember { mutableStateOf<List<Long>>(emptyList()) }
     var monthlyCounts by remember { mutableStateOf<Map<Long, Int>>(emptyMap()) }
     val prefs = remember { context.getSharedPreferences("synesthesia_stats", 0) }
+    val playbackPrefs = remember { context.getSharedPreferences("synesthesia_playback", 0) }
     LaunchedEffect(Unit) {
         playCounts = prefs.all.filterKeys { it.startsWith("plays_") }.mapNotNull { (k,v) -> k.removePrefix("plays_").toLongOrNull()?.let { it to (v as? Int ?: 0) } }.toMap()
         recentIds = prefs.getString("recent", "")!!.split(',').mapNotNull { it.toLongOrNull() }
@@ -153,6 +168,7 @@ private fun SynesthesiaApp(player: ExoPlayer) {
     }
     fun play(track: LocalTrack) {
         selected = track
+        playbackPrefs.edit().putLong("last_track_id", track.id).apply()
         val index = tracks.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
         player.setMediaItems(tracks.map { item ->
             val metadata = MediaMetadata.Builder()
@@ -178,7 +194,10 @@ private fun SynesthesiaApp(player: ExoPlayer) {
             override fun onIsPlayingChanged(isPlaying: Boolean) { playing = isPlaying }
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 val id = mediaItem?.mediaId?.toLongOrNull()
-                if (id != null) selected = tracks.firstOrNull { it.id == id } ?: selected
+                if (id != null) {
+                    selected = tracks.firstOrNull { it.id == id } ?: selected
+                    playbackPrefs.edit().putLong("last_track_id", id).apply()
+                }
             }
         }
         player.addListener(listener)
@@ -205,12 +224,39 @@ private fun SynesthesiaApp(player: ExoPlayer) {
                 }
             }; list
         }
-        tracks = result; scanning = false; scanMessage = if(result.isEmpty()) "No music found. Add MP3, FLAC, M4A or other audio files and scan again." else "Found ${result.size} tracks on this device"
+        tracks = result
+        val lastTrackId = playbackPrefs.getLong("last_track_id", -1L)
+        val lastTrack = result.firstOrNull { it.id == lastTrackId }
+        if (lastTrack != null && player.currentMediaItem == null) {
+            selected = lastTrack
+            val metadata = MediaMetadata.Builder()
+                .setTitle(lastTrack.title)
+                .setArtist(lastTrack.artist)
+                .setAlbumTitle(lastTrack.album)
+                .apply { lastTrack.artwork?.let { setArtworkUri(it) } }
+                .build()
+            player.setMediaItem(MediaItem.Builder().setUri(lastTrack.uri).setMediaId(lastTrack.id.toString()).setMediaMetadata(metadata).build())
+            player.prepare()
+            player.pause()
+        } else if (player.currentMediaItem != null) {
+            val currentId = player.currentMediaItem?.mediaId?.toLongOrNull()
+            selected = result.firstOrNull { it.id == currentId } ?: lastTrack ?: selected
+            if (currentId != null) playbackPrefs.edit().putLong("last_track_id", currentId).apply()
+        }
+        scanning = false
+        scanMessage = if(result.isEmpty()) "No music found. Add MP3, FLAC, M4A or other audio files and scan again." else "Found ${result.size} tracks on this device"
     }
     val permission = if(Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
     var hasPermission by remember { mutableStateOf(ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> hasPermission=granted; if(granted) scope.launch { scan() } }
     LaunchedEffect(hasPermission) { if(hasPermission && tracks.isEmpty()) scan() }
+    LaunchedEffect(openPlayerRequest, selected) {
+        if (openPlayerRequest && selected != null) {
+            expandedPlayer = true
+            liquidQueueOpen = false
+            consumeOpenPlayerRequest()
+        }
+    }
     var ambientPalette by remember { mutableStateOf(Triple(Color(0xFFA855F7), Color(0xFFEC4899), Color(0xFF6366F1))) }
     var activeAtmosphere by remember { mutableStateOf("album") }
     fun chooseAtmosphere(name: String) {
@@ -518,7 +564,7 @@ private fun SynesthesiaApp(player: ExoPlayer) {
         // Match the website's floating 420px / 48dvh queue, with the player-connected droplets.
         Box(
             Modifier.align(Alignment.BottomCenter)
-                .fillMaxWidth().padding(horizontal=12.dp).padding(bottom=142.dp)
+                .fillMaxWidth().padding(horizontal=12.dp).padding(bottom=210.dp)
                 .widthIn(max=420.dp).fillMaxHeight(.48f)
         ) {
             // Website .lq-drop-1 / .lq-drop-2: two glossy droplets descending from the queue's lower edge.
