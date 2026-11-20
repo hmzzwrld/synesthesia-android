@@ -2,6 +2,7 @@ package com.synesthesia.mobile
 
 import android.Manifest
 import android.media.MediaMetadataRetriever
+import android.media.audiofx.Equalizer
 import android.content.ContentUris
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -82,7 +83,7 @@ private val Muted = Color(0xFFAAA2BE)
 
 data class LocalTrack(val id: Long, val title: String, val artist: String, val album: String, val uri: Uri, val artwork: Uri?, val duration: Long, val genre: String, val path: String)
 private enum class Tab(val label: String) { HOME("Home"), SEARCH("Search"), LIBRARY("Library") }
-private enum class LibraryTab(val label: String) { SONGS("Songs"), ALBUMS("Albums"), ARTISTS("Artists"), GENRES("Genres"), FOLDERS("Folders") }
+private enum class LibraryTab(val label: String) { SONGS("Songs"), ALBUMS("Albums"), ARTISTS("Artists"), GENRES("Genres") }
 
 class MainActivity : ComponentActivity() {
     private var player: ExoPlayer? = null
@@ -110,6 +111,8 @@ private fun SynesthesiaApp(player: ExoPlayer) {
     var selected by remember { mutableStateOf<LocalTrack?>(null) }
     var playing by remember { mutableStateOf(false) }
     var expandedPlayer by remember { mutableStateOf(false) }
+    var settingsOpen by remember { mutableStateOf(false) }
+    var equalizerOpen by remember { mutableStateOf(false) }
     var liquidQueueOpen by remember { mutableStateOf(false) }
     var scanning by remember { mutableStateOf(false) }
     var scanMessage by remember { mutableStateOf("Scan your device to find music") }
@@ -267,8 +270,8 @@ private fun SynesthesiaApp(player: ExoPlayer) {
                             Text("SYNESTHESIA", color=White, fontSize=17.sp, fontWeight=FontWeight.Black, letterSpacing=3.sp)
                             Text("YOUR SOUND. YOUR WORLD.", color=Muted, fontSize=9.sp, letterSpacing=2.sp)
                         }
-                        IconButton(onClick={ if(hasPermission) scope.launch { scan() } else launcher.launch(permission) }) {
-                            Icon(Icons.Rounded.Refresh, "Rescan music", tint=ambientPalette.first)
+                        IconButton(onClick={ settingsOpen = true }) {
+                            Icon(Icons.Rounded.Settings, "Settings", tint=ambientPalette.first)
                         }
                     }
                     AnimatedContent(
@@ -285,7 +288,7 @@ private fun SynesthesiaApp(player: ExoPlayer) {
                     }
                 }
                 } // End captured background/content layer.
-                if(expandedPlayer && selected!=null) PlayerSheet(selected!!, playing, { if(player.isPlaying) player.pause() else player.play() }, {player.seekToPreviousMediaItem()}, {player.seekToNextMediaItem()}, {expandedPlayer=false}, player, tracks, { expandedPlayer=false; liquidQueueOpen=true })
+                if(expandedPlayer && selected!=null) PlayerSheet(selected!!, playing, { if(player.isPlaying) player.pause() else player.play() }, {player.seekToPreviousMediaItem()}, {player.seekToNextMediaItem()}, {expandedPlayer=false}, player, tracks, { expandedPlayer=false; liquidQueueOpen=true }, { equalizerOpen=true })
                 // Queue is drawn first; the compact island is drawn above it, just like the website z-index stack.
                 AnimatedVisibility(visible=liquidQueueOpen,enter=fadeIn(tween(160))+slideInVertically(spring(dampingRatio=.78f,stiffness=360f)){it/5},exit=fadeOut(tween(130))+slideOutVertically(tween(180)){it/3}) {
                     LiquidQueueSheet(player, tracks, displayedPalette, glassHaze, { liquidQueueOpen=false })
@@ -303,6 +306,8 @@ private fun SynesthesiaApp(player: ExoPlayer) {
                         if (!liquidQueueOpen) Navigation(tab,{tab=it}, glassHaze)
                     }
                 }
+                if(settingsOpen) SettingsScreen(tracks, { settingsOpen=false }, { if(hasPermission) scope.launch { scan() } else launcher.launch(permission) })
+                if(equalizerOpen) EqualizerSheet(player.audioSessionId, { equalizerOpen=false })
                 if(!hasPermission) PermissionPrompt { launcher.launch(permission) }
                 if(scanning) Box(Modifier.fillMaxSize().background(Color.Black.copy(.35f)), contentAlignment=Alignment.Center) { CircularProgressIndicator(color=ambientPalette.first) }
             }
@@ -333,7 +338,6 @@ private fun SynesthesiaApp(player: ExoPlayer) {
         LibraryTab.ALBUMS -> LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(tracks.groupBy{it.album}.toList().sortedBy{it.first}) { (name,songs) -> CollectionRow(name,songs.first().artist,"${songs.size} tracks",songs.first().artwork){songs.firstOrNull()?.let(play)} } }
         LibraryTab.ARTISTS -> LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(tracks.groupBy{it.artist}.toList().sortedBy{it.first}) { (name,songs) -> CollectionRow(name,"Artist","${songs.size} tracks",songs.first().artwork){songs.firstOrNull()?.let(play)} } }
         LibraryTab.GENRES -> LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(tracks.groupBy{it.genre}.toList().sortedBy{it.first}) { (name,songs) -> CollectionRow(name,"Genre","${songs.size} tracks",songs.first().artwork){songs.firstOrNull()?.let(play)} } }
-        LibraryTab.FOLDERS -> LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(tracks.groupBy{it.path.substringBeforeLast('/',"/")}.toList().sortedBy{it.first}) { (name,songs) -> CollectionRow(name.substringAfterLast('/').ifBlank{"Music"},name,"${songs.size} tracks",songs.first().artwork){songs.firstOrNull()?.let(play)} } }
     } }
 }
 
@@ -630,7 +634,8 @@ private fun SynesthesiaApp(player: ExoPlayer) {
     close: () -> Unit,
     player: ExoPlayer,
     queue: List<LocalTrack>,
-    openQueue: () -> Unit
+    openQueue: () -> Unit,
+    openEqualizer: () -> Unit
 ) {
     var progress by remember { mutableFloatStateOf(0f) }
     var shuffle by remember { mutableStateOf(player.shuffleModeEnabled) }
@@ -709,6 +714,9 @@ private fun SynesthesiaApp(player: ExoPlayer) {
                         Text(track.album,color=Color(0xFFFF3D8B).copy(.85f),fontSize=11.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
                     }
                 }
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.End) {
+                    TextButton(onClick=openEqualizer) { Icon(Icons.Rounded.Equalizer,null,tint=Color(0xFFFF3D8B),modifier=Modifier.size(17.dp)); Spacer(Modifier.width(6.dp)); Text("EQUALIZER",color=Color(0xFFFF3D8B),fontSize=10.sp,letterSpacing=1.3.sp) }
+                }
                 Slider(value=progress,onValueChange={progress=it;if(player.duration>0)player.seekTo((player.duration*it).toLong())},
                     colors=SliderDefaults.colors(thumbColor=Color(0xFFFF3D8B),activeTrackColor=Color(0xFFFF3D8B),inactiveTrackColor=Color.White.copy(.16f)),
                     modifier=Modifier.fillMaxWidth().height(25.dp))
@@ -739,6 +747,114 @@ private fun SynesthesiaApp(player: ExoPlayer) {
                 }
             }
 
+        }
+    }
+}
+
+@Composable private fun SettingsScreen(tracks: List<LocalTrack>, close: () -> Unit, rescan: () -> Unit) {
+    var section by remember { mutableStateOf("Look & Feel") }
+    var reduceMotion by remember { mutableStateOf(false) }
+    var gapless by remember { mutableStateOf(true) }
+    var loudness by remember { mutableStateOf(false) }
+    val sections = listOf("Look & Feel", "Interface", "Audio Settings", "Files & Folders", "Advanced")
+    Box(Modifier.fillMaxSize().background(Color(0xF20A0A14)).padding(horizontal=18.dp, vertical=12.dp)) {
+        Column(Modifier.fillMaxSize()) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment=Alignment.CenterVertically, horizontalArrangement=Arrangement.SpaceBetween) {
+                Column { Text("SETTINGS", color=Color(0xFFFF3D8B), fontSize=11.sp, letterSpacing=2.4.sp, fontWeight=FontWeight.Bold); Text("Make it yours", color=White, fontSize=25.sp, fontWeight=FontWeight.Bold) }
+                IconButton(onClick=close) { Icon(Icons.Rounded.Close, "Close settings", tint=White) }
+            }
+            Spacer(Modifier.height(14.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                sections.forEach { name -> FilterChip(selected=section==name,onClick={section=name},label={Text(name, fontSize=10.sp)}, colors=FilterChipDefaults.filterChipColors(selectedContainerColor=Color(0xFF7655A8).copy(.45f),labelColor=Muted,selectedLabelColor=White)) }
+            }
+            Spacer(Modifier.height(12.dp))
+            when(section) {
+                "Look & Feel" -> Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
+                    SettingsCard("Atmosphere", "Choose how the album-reactive background behaves") {
+                        Text("Album artwork colours are used automatically. Use the four atmosphere dots on the mini-player to switch palettes.", color=Muted, fontSize=12.sp)
+                    }
+                    SettingsCard("Appearance", "SYNESTHESIA liquid glass") { Text("Dark glass theme is active", color=White, fontSize=13.sp) }
+                }
+                "Interface" -> Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
+                    SettingsCard("Motion", "Animation preferences") { SettingsSwitch("Reduce motion", reduceMotion) { reduceMotion=it } }
+                    SettingsCard("Library display", "Organise your collection") { Text("Songs, albums, artists and genres stay in Library. Folder management lives here in Settings.", color=Muted, fontSize=12.sp) }
+                }
+                "Audio Settings" -> Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
+                    SettingsCard("Playback", "Audio behaviour") {
+                        SettingsSwitch("Gapless playback", gapless) { gapless=it }
+                        SettingsSwitch("Loudness normalisation", loudness) { loudness=it }
+                        Text("Open the expanded player to access the system audio equalizer.", color=Muted, fontSize=11.sp)
+                    }
+                }
+                "Files & Folders" -> Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
+                    SettingsCard("Music folders", "${tracks.size} indexed audio files") {
+                        tracks.groupBy { it.path.substringBeforeLast('/', "/") }.toList().sortedBy { it.first }.forEach { (path, songs) ->
+                            Row(Modifier.fillMaxWidth().padding(vertical=6.dp), verticalAlignment=Alignment.CenterVertically) {
+                                Icon(Icons.Rounded.Folder, null, tint=Color(0xFFFF3D8B), modifier=Modifier.size(19.dp)); Spacer(Modifier.width(9.dp))
+                                Column(Modifier.weight(1f)) { Text(path.substringAfterLast('/').ifBlank { "Music" }, color=White, fontSize=12.sp); Text(path, color=Muted, fontSize=9.sp, maxLines=1, overflow=TextOverflow.Ellipsis) }
+                                Text("${songs.size}", color=Muted, fontSize=11.sp)
+                            }
+                        }
+                        OutlinedButton(onClick=rescan, modifier=Modifier.fillMaxWidth()) { Icon(Icons.Rounded.Refresh, null); Spacer(Modifier.width(6.dp)); Text("Rescan device") }
+                    }
+                    SettingsCard("Supported files", "Local music library") { Text("Audio files indexed by Android MediaStore are included. Folder exclusions and custom folder grants can be added in a later storage pass.", color=Muted, fontSize=11.sp) }
+                }
+                else -> Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
+                    SettingsCard("Advanced features", "Playback and library diagnostics") {
+                        Text("Indexed tracks: ${tracks.size}", color=White, fontSize=12.sp)
+                        Text("Playback engine: AndroidX Media3 / ExoPlayer", color=Muted, fontSize=11.sp)
+                        Text("Audio effects are provided by the device when supported.", color=Muted, fontSize=11.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable private fun SettingsCard(title: String, subtitle: String, content: @Composable ColumnScope.() -> Unit) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Color.White.copy(.065f)).border(1.dp,Color.White.copy(.11f),RoundedCornerShape(22.dp)).padding(15.dp), verticalArrangement=Arrangement.spacedBy(8.dp)) {
+        Text(title, color=White, fontSize=15.sp, fontWeight=FontWeight.SemiBold)
+        Text(subtitle, color=Muted, fontSize=10.sp)
+        content()
+    }
+}
+
+@Composable private fun SettingsSwitch(label: String, checked: Boolean, change: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.SpaceBetween, verticalAlignment=Alignment.CenterVertically) {
+        Text(label, color=White, fontSize=12.sp)
+        Switch(checked=checked,onCheckedChange=change)
+    }
+}
+
+@Composable private fun EqualizerSheet(audioSessionId: Int, close: () -> Unit) {
+    val eq = remember(audioSessionId) { if (audioSessionId > 0) runCatching { Equalizer(0, audioSessionId).apply { enabled = true } }.getOrNull() else null }
+    DisposableEffect(eq) { onDispose { runCatching { eq?.release() } } }
+    var enabled by remember(eq) { mutableStateOf(eq?.enabled == true) }
+    var preset by remember(eq) { mutableIntStateOf(-1) }
+    val bands = remember(eq) { eq?.numberOfBands?.toInt() ?: 0 }
+    val range = remember(eq) { eq?.bandLevelRange ?: shortArrayOf(-1500,1500) }
+    val levels = remember(eq) { mutableStateListOf<Float>().apply { repeat(bands) { add(runCatching { eq!!.getBandLevel(it.toShort()).toFloat() }.getOrDefault(0f)) } } }
+    androidx.compose.ui.window.Dialog(onDismissRequest=close) {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(30.dp)).background(Color(0xF21A1726)).border(1.dp,Color.White.copy(.18f),RoundedCornerShape(30.dp)).padding(20.dp), verticalArrangement=Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.SpaceBetween, verticalAlignment=Alignment.CenterVertically) {
+                Column { Text("AUDIO", color=Color(0xFFFF3D8B), fontSize=10.sp, letterSpacing=2.sp); Text("Equalizer", color=White, fontSize=22.sp, fontWeight=FontWeight.Bold) }
+                IconButton(onClick=close) { Icon(Icons.Rounded.Close,null,tint=White) }
+            }
+            if (eq == null || bands == 0) {
+                Text("This device hasn't provided an equalizer session yet. Start playback and reopen this panel, or use your device's audio effects.", color=Muted, fontSize=12.sp)
+            } else {
+                SettingsSwitch("Equalizer enabled", enabled) { enabled=it; runCatching { eq.enabled=it } }
+                Row(horizontalArrangement=Arrangement.spacedBy(5.dp)) {
+                    (0 until eq.numberOfPresets.toInt()).take(5).forEach { i -> TextButton(onClick={ runCatching { eq.usePreset(i.toShort()); preset=i; repeat(bands) { b -> levels[b]=eq.getBandLevel(b.toShort()).toFloat() } } }) { Text(eq.getPresetName(i.toShort()).toString().take(7), fontSize=9.sp, color=if(preset==i)Color(0xFFFF3D8B)else Muted) } }
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.SpaceEvenly, verticalAlignment=Alignment.Bottom) {
+                    repeat(bands) { i -> Column(Modifier.weight(1f), horizontalAlignment=Alignment.CenterHorizontally) {
+                        Text("${(eq.getCenterFreq(i.toShort())/1000)}k", color=Muted, fontSize=8.sp)
+                        Slider(value=levels[i],onValueChange={v->levels[i]=v;runCatching{eq.setBandLevel(i.toShort(),v.toInt().toShort())}},valueRange=range[0].toFloat()..range[1].toFloat(),modifier=Modifier.height(150.dp).graphicsLayer { rotationZ= -90f })
+                        Text("${eq.getCenterFreq(i.toShort())/1000}", color=White, fontSize=8.sp)
+                    } }
+                }
+            }
         }
     }
 }
