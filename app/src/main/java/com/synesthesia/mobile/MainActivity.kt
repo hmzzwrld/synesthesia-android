@@ -51,6 +51,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -453,86 +455,157 @@ private fun SynesthesiaApp(player: ExoPlayer) {
 
 @Composable private fun LiquidQueueSheet(player:ExoPlayer, library:List<LocalTrack>, palette:Triple<Color,Color,Color>, hazeState:HazeState, close:()->Unit) {
     var queueRevision by remember { mutableIntStateOf(0) }
+    var queueBookmarked by remember { mutableStateOf(false) }
     val items = remember(player, library, queueRevision) {
         (0 until player.mediaItemCount).mapNotNull { i ->
             val id=player.getMediaItemAt(i).mediaId.toLongOrNull()
             library.firstOrNull { it.id==id }
         }
     }
-    val organicShape = RoundedCornerShape(topStart=56.dp,topEnd=56.dp,bottomStart=46.dp,bottomEnd=46.dp)
+    val organicShape = RoundedCornerShape(
+        topStart=56.dp, topEnd=56.dp, bottomStart=46.dp, bottomEnd=46.dp
+    )
     val accent = palette.first
-    Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(accent.copy(.16f),Color.Black.copy(.48f)),radius=1100f)).clickable(onClick=close)) {
-        // Website Liquid Queue floats above the mini-player, with two small liquid droplets connecting it.
-        Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal=12.dp).padding(bottom=96.dp)
-            .widthIn(max=420.dp).fillMaxHeight(.49f)) {
+    Box(Modifier.fillMaxSize().background(Color.Black.copy(.18f)).clickable(onClick=close)) {
+        // Match the website's floating 420px / 48dvh queue, with the player-connected droplets.
+        Box(
+            Modifier.align(Alignment.BottomCenter)
+                .fillMaxWidth().padding(horizontal=12.dp).padding(bottom=96.dp)
+                .widthIn(max=420.dp).fillMaxHeight(.48f)
+        ) {
             Box(Modifier.align(Alignment.BottomCenter).offset(y=12.dp).size(16.dp).clip(CircleShape)
                 .background(Brush.linearGradient(listOf(Color.White.copy(.22f),Color(0xFF1E1A30).copy(.72f))))
                 .border(1.dp,Color.White.copy(.22f),CircleShape))
             Box(Modifier.align(Alignment.BottomCenter).offset(y=25.dp).size(8.dp).clip(CircleShape)
                 .background(Color.White.copy(.14f)).border(1.dp,Color.White.copy(.2f),CircleShape))
-            Column(
+            Box(
                 Modifier.fillMaxSize()
                     .shadow(28.dp,organicShape,ambientColor=accent.copy(.20f),spotColor=Color.Black.copy(.56f))
-                    // Clip both sides of Haze so the captured blur cannot form a rectangular halo.
                     .clip(organicShape)
-                    .hazeChild(state = hazeState) {
-                        blurRadius = 16.dp
-                        backgroundColor = Color.Transparent
-                        noiseFactor = 0.018f
-                        inputScale = HazeInputScale.Fixed(0.66f)
+                    .hazeChild(state=hazeState) {
+                        // The web queue uses blur(30px) saturate(180%).
+                        blurRadius=30.dp
+                        backgroundColor=Color.Transparent
+                        noiseFactor=0.018f
+                        inputScale=HazeInputScale.Fixed(0.66f)
                     }
                     .clip(organicShape)
-                    // Website mobile queue: 16dp backdrop blur, darker frosted base, liquid fill and three album-reactive washes.
-                    .background(Color(0xFF0E0C1A).copy(.62f))
-                    .background(Brush.linearGradient(listOf(Color.White.copy(.15f),Color.White.copy(.04f),Color(0xFF0E0C1A).copy(.58f))))
-                    .background(Brush.radialGradient(listOf(palette.first.copy(.22f),Color.Transparent),radius=850f,center=androidx.compose.ui.geometry.Offset(500f,1200f)))
-                    .background(Brush.radialGradient(listOf(palette.second.copy(.13f),Color.Transparent),radius=620f,center=androidx.compose.ui.geometry.Offset(0f,0f)))
-                    .background(Brush.radialGradient(listOf(palette.third.copy(.14f),Color.Transparent),radius=500f,center=androidx.compose.ui.geometry.Offset(300f,-60f)))
+                    // Darker material keeps list content legible while retaining the blurred background.
+                    .background(Color(0xFF0E0C1A).copy(.74f))
+                    .background(Brush.linearGradient(listOf(Color.White.copy(.14f),Color.White.copy(.035f),Color(0xFF0E0C1A).copy(.30f))))
+                    .background(Brush.radialGradient(listOf(palette.first.copy(.24f),Color.Transparent),radius=850f,center=androidx.compose.ui.geometry.Offset(500f,1200f)))
+                    .background(Brush.radialGradient(listOf(palette.second.copy(.14f),Color.Transparent),radius=620f,center=androidx.compose.ui.geometry.Offset(0f,0f)))
+                    .background(Brush.radialGradient(listOf(palette.third.copy(.12f),Color.Transparent),radius=500f,center=androidx.compose.ui.geometry.Offset(300f,-60f)))
                     .border(1.dp,Brush.verticalGradient(listOf(Color.White.copy(.42f),Color.White.copy(.17f),Color.White.copy(.07f))),organicShape)
-                    .clickable(onClick={})
-                    .padding(horizontal=13.dp,vertical=17.dp),
-                verticalArrangement=Arrangement.spacedBy(8.dp)
             ) {
-                Box(Modifier.align(Alignment.CenterHorizontally).width(38.dp).height(4.dp).clip(CircleShape).background(Color.White.copy(.38f)))
-                Row(Modifier.fillMaxWidth().padding(horizontal=5.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween) {
-                    Column {
-                        Text("LIQUID QUEUE",color=accent,fontSize=9.sp,fontWeight=FontWeight.Bold,letterSpacing=2.sp)
-                        Text("Up Next",color=White,fontSize=23.sp,fontWeight=FontWeight.Bold)
+                // Website's lq-sheen: broad top reflection and a faint lower-right reflection.
+                Box(Modifier.fillMaxSize().background(
+                    Brush.radialGradient(listOf(Color.White.copy(.20f),Color.Transparent),radius=430f,center=androidx.compose.ui.geometry.Offset(210f,0f))
+                ))
+                Box(Modifier.fillMaxSize().background(
+                    Brush.radialGradient(listOf(Color.White.copy(.07f),Color.Transparent),radius=300f,center=androidx.compose.ui.geometry.Offset(900f,1500f))
+                ))
+                Column(
+                    Modifier.fillMaxSize().padding(horizontal=12.dp, vertical=15.dp),
+                    verticalArrangement=Arrangement.spacedBy(3.dp)
+                ) {
+                    // Header mirrors the website: title, count pill, save/clear tools, close orb.
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal=4.dp, vertical=2.dp),
+                        verticalAlignment=Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("LIQUID QUEUE",color=accent,fontSize=9.sp,fontWeight=FontWeight.Bold,letterSpacing=2.sp)
+                            Text("Up Next",color=White,fontSize=21.sp,fontWeight=FontWeight.ExtraBold)
+                        }
+                        Box(
+                            Modifier.clip(RoundedCornerShape(999.dp))
+                                .background(Color.White.copy(.075f))
+                                .border(1.dp,Color.White.copy(.13f),RoundedCornerShape(999.dp))
+                                .padding(horizontal=11.dp,vertical=6.dp)
+                        ) {
+                            Text("${items.size} tracks",color=Muted,fontSize=11.sp)
+                        }
+                        Spacer(Modifier.width(7.dp))
+                        IconButton(
+                            onClick={queueBookmarked=!queueBookmarked},
+                            modifier=Modifier.size(36.dp).clip(CircleShape)
+                                .background(Color.White.copy(if(queueBookmarked) .16f else .075f))
+                                .border(1.dp,Color.White.copy(.16f),CircleShape)
+                        ) {
+                            Icon(if(queueBookmarked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
+                                "Bookmark queue",tint=if(queueBookmarked) accent else White,modifier=Modifier.size(19.dp))
+                        }
+                        IconButton(
+                            onClick={
+                                for(i in player.mediaItemCount-1 downTo player.currentMediaItemIndex+1) player.removeMediaItem(i)
+                                queueRevision++
+                            },
+                            enabled=player.mediaItemCount>player.currentMediaItemIndex+1,
+                            modifier=Modifier.size(36.dp).clip(CircleShape)
+                                .background(Color.White.copy(.075f))
+                                .border(1.dp,Color.White.copy(.16f),CircleShape)
+                        ) {
+                            Icon(Icons.Rounded.DeleteOutline,"Clear added tracks",tint=White,modifier=Modifier.size(19.dp))
+                        }
+                        Spacer(Modifier.width(7.dp))
+                        IconButton(
+                            onClick=close,
+                            modifier=Modifier.size(42.dp).clip(CircleShape)
+                                .background(Brush.radialGradient(listOf(Color.White.copy(.25f),Color.White.copy(.055f))))
+                                .border(1.dp,Color.White.copy(.20f),CircleShape)
+                        ) { Icon(Icons.Rounded.Close,"Close queue",tint=White,modifier=Modifier.size(21.dp)) }
                     }
-                    Row(verticalAlignment=Alignment.CenterVertically) {
-                        Text("${items.size} tracks",color=Muted,fontSize=11.sp)
-                        IconButton(onClick=close) { Icon(Icons.Rounded.Close,"Close queue",tint=White) }
-                    }
-                }
-                Row(Modifier.fillMaxWidth().padding(start=5.dp,end=5.dp,bottom=2.dp),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
-                    Text("NOW PLAYING  ·  UP NEXT",color=Muted,fontSize=9.sp,letterSpacing=1.4.sp)
-                    TextButton(onClick={ for(i in player.mediaItemCount-1 downTo player.currentMediaItemIndex+1) player.removeMediaItem(i); queueRevision++ },enabled=player.mediaItemCount>player.currentMediaItemIndex+1) { Text("Clear upcoming",color=accent,fontSize=11.sp) }
-                }
-                LazyColumn(Modifier.weight(1f).fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(5.dp),contentPadding=PaddingValues(bottom=8.dp)) {
-                    items(items.size,key={index -> items[index].id}) { index ->
-                        val item=items[index]
-                        val current=index==player.currentMediaItemIndex
-                        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
-                            .background(if(current) Brush.horizontalGradient(listOf(accent.copy(.28f),Color.White.copy(.07f))) else Brush.horizontalGradient(listOf(Color.White.copy(.065f),Color.White.copy(.018f))))
-                            .border(if(current)1.dp else .5.dp,if(current)Color.White.copy(.24f) else Color.White.copy(.075f),RoundedCornerShape(20.dp))
-                            .clickable { player.seekToDefaultPosition(index); player.play() }
-                            .padding(horizontal=9.dp,vertical=8.dp),verticalAlignment=Alignment.CenterVertically) {
-                            Box(Modifier.size(44.dp).clip(CircleShape).border(1.dp,Color.White.copy(.24f),CircleShape)) { Artwork(item.artwork,44) }
-                            Spacer(Modifier.width(10.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(item.title,color=if(current) White else White.copy(.94f),fontSize=13.sp,fontWeight=FontWeight.SemiBold,maxLines=2,overflow=TextOverflow.Ellipsis)
-                                Text(item.artist,color=Muted,fontSize=10.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
-                            }
-                            if(current) Icon(Icons.Rounded.GraphicEq,null,tint=accent,modifier=Modifier.padding(horizontal=5.dp))
-                            else Column {
-                                IconButton(onClick={if(index>player.currentMediaItemIndex+1) { player.moveMediaItem(index,index-1); queueRevision++ }},modifier=Modifier.size(26.dp),enabled=index>player.currentMediaItemIndex+1) { Icon(Icons.Rounded.KeyboardArrowUp,"Move up",tint=Muted,modifier=Modifier.size(18.dp)) }
-                                IconButton(onClick={if(index<player.mediaItemCount-1) { player.moveMediaItem(index,index+1); queueRevision++ }},modifier=Modifier.size(26.dp),enabled=index<player.mediaItemCount-1) { Icon(Icons.Rounded.KeyboardArrowDown,"Move down",tint=Muted,modifier=Modifier.size(18.dp)) }
+                    LazyColumn(
+                        Modifier.weight(1f).fillMaxWidth(),
+                        verticalArrangement=Arrangement.spacedBy(2.dp),
+                        contentPadding=PaddingValues(top=7.dp,bottom=8.dp)
+                    ) {
+                        items(items.size,key={index -> items[index].id}) { index ->
+                            val item=items[index]
+                            val current=index==player.currentMediaItemIndex
+                            var dragDistance by remember(index,queueRevision) { mutableFloatStateOf(0f) }
+                            Row(
+                                Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
+                                    .background(if(current)
+                                        Brush.horizontalGradient(listOf(accent.copy(.20f),Color.White.copy(.045f)))
+                                    else Brush.horizontalGradient(listOf(Color.White.copy(.018f),Color.Transparent)))
+                                    .pointerInput(index,queueRevision) {
+                                        detectDragGesturesAfterLongPress(
+                                            onDragEnd={dragDistance=0f},
+                                            onDragCancel={dragDistance=0f},
+                                            onDrag={change, amount ->
+                                                change.consume()
+                                                dragDistance += amount.y
+                                                val step=if(dragDistance>58f) 1 else if(dragDistance < -58f) -1 else 0
+                                                val target=index+step
+                                                if(step!=0 && target>player.currentMediaItemIndex && target in 0 until player.mediaItemCount) {
+                                                    player.moveMediaItem(index,target)
+                                                    queueRevision++
+                                                    dragDistance=0f
+                                                }
+                                            }
+                                        )
+                                    }
+                                    .clickable { player.seekToDefaultPosition(index); player.play() }
+                                    .padding(start=7.dp,end=12.dp,top=7.dp,bottom=7.dp),
+                                verticalAlignment=Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Rounded.DragHandle,null,tint=Muted.copy(.85f),modifier=Modifier.size(22.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Box(Modifier.size(46.dp).clip(CircleShape)
+                                    .border(1.dp,Color.White.copy(.15f),CircleShape)) { Artwork(item.artwork,46) }
+                                Spacer(Modifier.width(12.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(item.title,color=White,fontSize=14.sp,fontWeight=FontWeight.SemiBold,
+                                        maxLines=2,overflow=TextOverflow.Ellipsis,lineHeight=17.sp)
+                                    Text(item.artist,color=Muted,fontSize=12.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
+                                }
+                                Spacer(Modifier.width(8.dp))
+                                Text(formatDuration(item.duration),color=Muted,fontSize=11.sp)
                             }
                         }
                     }
-                }
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Color.White.copy(.055f)).padding(horizontal=12.dp,vertical=9.dp),verticalAlignment=Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Info,null,tint=Muted,modifier=Modifier.size(15.dp)); Spacer(Modifier.width(8.dp)); Text("Long-press the mini-player or tap the queue icon to return here.",color=Muted,fontSize=10.sp,maxLines=2)
                 }
             }
         }
