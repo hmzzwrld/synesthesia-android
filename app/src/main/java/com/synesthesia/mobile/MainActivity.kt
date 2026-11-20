@@ -171,12 +171,24 @@ private fun SynesthesiaApp(player: ExoPlayer) {
     var hasPermission by remember { mutableStateOf(ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> hasPermission=granted; if(granted) scope.launch { scan() } }
     LaunchedEffect(hasPermission) { if(hasPermission && tracks.isEmpty()) scan() }
-    var ambientPalette by remember { mutableStateOf(Triple(Color(0xFFFF3D8B), Color(0xFFFF9F40), Color(0xFFA855F7))) }
+    var ambientPalette by remember { mutableStateOf(Triple(Color(0xFFA855F7), Color(0xFFEC4899), Color(0xFF6366F1))) }
+    var activeAtmosphere by remember { mutableStateOf("album") }
+    fun chooseAtmosphere(name: String) {
+        activeAtmosphere = name
+        ambientPalette = when (name) {
+            "purple" -> Triple(Color(0xFFA855F7), Color(0xFFEC4899), Color(0xFF6366F1))
+            "electric" -> Triple(Color(0xFF38BDF8), Color(0xFF2563EB), Color(0xFF22D3EE))
+            "emerald" -> Triple(Color(0xFF34D399), Color(0xFF059669), Color(0xFFA3E635))
+            "warm" -> Triple(Color(0xFFFB923C), Color(0xFFFF3D8B), Color(0xFFFACC15))
+            else -> ambientPalette
+        }
+    }
     LaunchedEffect(selected?.artwork) {
         ambientPalette = ColorExtractor.extractPaletteFromUri(
             context, selected?.artwork,
-            Color(0xFFFF3D8B), Color(0xFFFF9F40), Color(0xFFA855F7)
+            Color(0xFFA855F7), Color(0xFFEC4899), Color(0xFF6366F1)
         )
+        activeAtmosphere = "album"
     }
     val glassHaze = remember { HazeState() }
     // Animate the complete artwork palette once, then share it with the background and glass surfaces.
@@ -195,7 +207,7 @@ private fun SynesthesiaApp(player: ExoPlayer) {
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize().blur(1.2.dp),
-                    alpha = 0.66f
+                    alpha = 0.82f
                 )
                 Box(
                     Modifier.fillMaxSize().background(
@@ -210,19 +222,25 @@ private fun SynesthesiaApp(player: ExoPlayer) {
                 // so place the album-reactive colour wash ABOVE the artwork to keep it visible.
                 Box(Modifier.fillMaxSize().background(
                     Brush.radialGradient(
-                        colors = listOf(displayedPalette.first.copy(alpha = 0.25f), Color.Transparent),
+                        colors = listOf(Color(0xFF7C3AED).copy(alpha = 0.13f), Color.Transparent),
+                        center = androidx.compose.ui.geometry.Offset(340f, 720f), radius = 1450f
+                    )
+                ))
+                Box(Modifier.fillMaxSize().background(
+                    Brush.radialGradient(
+                        colors = listOf(displayedPalette.first.copy(alpha = 0.14f), Color.Transparent),
                         center = androidx.compose.ui.geometry.Offset(180f, 520f), radius = 1050f
                     )
                 ))
                 Box(Modifier.fillMaxSize().background(
                     Brush.radialGradient(
-                        colors = listOf(displayedPalette.second.copy(alpha = 0.17f), Color.Transparent),
+                        colors = listOf(displayedPalette.second.copy(alpha = 0.09f), Color.Transparent),
                         center = androidx.compose.ui.geometry.Offset(760f, 1180f), radius = 900f
                     )
                 ))
                 Box(Modifier.fillMaxSize().background(
                     Brush.radialGradient(
-                        colors = listOf(displayedPalette.third.copy(alpha = 0.22f), Color.Transparent),
+                        colors = listOf(displayedPalette.third.copy(alpha = 0.12f), Color.Transparent),
                         center = androidx.compose.ui.geometry.Offset(520f, 1680f), radius = 1000f
                     )
                 ))
@@ -271,7 +289,7 @@ private fun SynesthesiaApp(player: ExoPlayer) {
                     verticalArrangement = Arrangement.spacedBy(9.dp)
                 ) {
                     AnimatedVisibility(selected!=null, enter=fadeIn()+slideInVertically { it/3 }, exit=fadeOut()+slideOutVertically { it/3 }) {
-                        MiniPlayer(selected, playing, { if(player.isPlaying) player.pause() else player.play() }, {expandedPlayer=true}, { liquidQueueOpen=true }, glassHaze, displayedPalette)
+                        MiniPlayer(selected, playing, { if(player.isPlaying) player.pause() else player.play() }, {expandedPlayer=true}, { liquidQueueOpen=true }, glassHaze, displayedPalette, activeAtmosphere, ::chooseAtmosphere)
                     }
                     Navigation(tab,{tab=it}, glassHaze)
                 }
@@ -333,7 +351,7 @@ private fun SynesthesiaApp(player: ExoPlayer) {
 @Composable private fun CollectionRow(title:String,subtitle:String,detail:String,art:Uri?,click:()->Unit){ Row(Modifier.fillMaxWidth().clickable(onClick=click).padding(vertical=8.dp),verticalAlignment=Alignment.CenterVertically){Artwork(art,50);Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(title,color=White,fontWeight=FontWeight.SemiBold);Text(subtitle,color=Muted,fontSize=11.sp)};Text(detail,color=Muted,fontSize=10.sp)} }
 @Composable private fun Artwork(uri:Uri?,size:Int){ Box(Modifier.size(size.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF282139)),contentAlignment=Alignment.Center){ if(uri!=null) AsyncImage(uri,null,Modifier.fillMaxSize()) else Icon(Icons.Rounded.Album,null,tint=Lavender,modifier=Modifier.size((size/2).dp)) } }
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
-@Composable private fun MiniPlayer(track:LocalTrack?,playing:Boolean,toggle:()->Unit,expand:()->Unit,openQueue:()->Unit,hazeState:HazeState,ambientPalette:Triple<Color,Color,Color>){
+@Composable private fun MiniPlayer(track:LocalTrack?,playing:Boolean,toggle:()->Unit,expand:()->Unit,openQueue:()->Unit,hazeState:HazeState,ambientPalette:Triple<Color,Color,Color>,activeAtmosphere:String,onAtmosphere:(String)->Unit){
     if(track==null)return
     val podShape = RoundedCornerShape(999.dp)
     // A short elastic width pulse mirrors the website's springy island expansion.
@@ -356,7 +374,7 @@ private fun SynesthesiaApp(player: ExoPlayer) {
     val podA by androidx.compose.animation.animateColorAsState(targetValue=ambientPalette.first, animationSpec=tween(1800), label="pod-album-a")
     val podB by androidx.compose.animation.animateColorAsState(targetValue=ambientPalette.second, animationSpec=tween(1800), label="pod-album-b")
     val podC by androidx.compose.animation.animateColorAsState(targetValue=ambientPalette.third, animationSpec=tween(1800), label="pod-album-c")
-    val targetMetaWidth = (track.title.length * 7.1f).coerceIn(76f,138f).dp
+    val targetMetaWidth = (track.title.length * 7.1f).coerceIn(100f,140f).dp
     val metaWidth by animateDpAsState(
         targetValue = targetMetaWidth,
         animationSpec = spring(dampingRatio=.62f, stiffness=340f),
@@ -368,13 +386,13 @@ private fun SynesthesiaApp(player: ExoPlayer) {
             .wrapContentWidth()
             .animateContentSize(spring(dampingRatio=.62f, stiffness=340f))
             .graphicsLayer { this.scaleX = podScaleX; this.scaleY = podScaleY }
-            .shadow(20.dp, podShape, ambientColor=podA.copy(.22f), spotColor=podC.copy(.24f))
+            .shadow(20.dp, podShape, ambientColor=podA.copy(.22f), spotColor=podC.copy(.12f))
             // Clip BEFORE the backdrop effect and again afterwards: this prevents Haze's
             // rectangular capture layer from leaking beyond the pill's rounded silhouette.
             .clip(podShape)
             .hazeChild(state = hazeState) {
-                blurRadius = 28.dp
-                backgroundColor = Color(0xFF0E0E18).copy(.42f)
+                blurRadius = 14.dp
+                backgroundColor = Color.Transparent
                 noiseFactor = 0.018f
                 inputScale = HazeInputScale.Fixed(0.66f)
             }
@@ -382,13 +400,13 @@ private fun SynesthesiaApp(player: ExoPlayer) {
             // Website material: dark translucent base, liquid fill, ambient tint and gloss.
             .background(Color(0xFF0E0E18).copy(.42f))
             .background(Brush.linearGradient(listOf(Color.White.copy(.14f),Color.White.copy(.04f),Color(0xFF141222).copy(.38f))))
-            .background(Brush.radialGradient(listOf(podA.copy(.30f),Color.Transparent),radius=460f,center=androidx.compose.ui.geometry.Offset(70f,70f)))
-            .background(Brush.radialGradient(listOf(podB.copy(.18f),Color.Transparent),radius=360f,center=androidx.compose.ui.geometry.Offset(330f,120f)))
-            .background(Brush.radialGradient(listOf(podC.copy(.24f),Color.Transparent),radius=420f,center=androidx.compose.ui.geometry.Offset(220f,180f)))
+            .background(Brush.radialGradient(listOf(podA.copy(.16f),Color.Transparent),radius=460f,center=androidx.compose.ui.geometry.Offset(70f,70f)))
+            .background(Brush.radialGradient(listOf(podB.copy(.14f),Color.Transparent),radius=360f,center=androidx.compose.ui.geometry.Offset(330f,120f)))
+            .background(Brush.radialGradient(listOf(podC.copy(.12f),Color.Transparent),radius=420f,center=androidx.compose.ui.geometry.Offset(220f,180f)))
             .background(Brush.radialGradient(listOf(Color.White.copy(.23f),Color.Transparent),radius=250f,center=androidx.compose.ui.geometry.Offset(100f,-35f)))
             .border(1.dp,Brush.verticalGradient(listOf(Color.White.copy(.42f),Color.White.copy(.17f),Color.White.copy(.07f))),podShape)
             .combinedClickable(onClick=expand,onLongClick=openQueue)
-            .padding(start=11.dp,end=10.dp,top=10.dp,bottom=10.dp),
+            .padding(start=13.dp,end=18.dp,top=13.dp,bottom=13.dp),
         verticalAlignment=Alignment.CenterVertically
     ) {
         Box(Modifier.size(46.dp).border(1.5.dp,Color.White.copy(.23f),CircleShape).padding(3.dp)
@@ -401,16 +419,33 @@ private fun SynesthesiaApp(player: ExoPlayer) {
             Spacer(Modifier.height(2.dp))
             Text(track.artist,color=Muted,fontSize=10.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
         }
-        Spacer(Modifier.width(5.dp))
-        Box(Modifier.size(32.dp).clip(CircleShape).background(Color.White.copy(.075f))
-            .clickable(onClick=openQueue),contentAlignment=Alignment.Center) {
-            Icon(Icons.Rounded.QueueMusic,"Open Liquid Queue",tint=Color.White.copy(.88f),modifier=Modifier.size(17.dp))
-        }
-        Spacer(Modifier.width(5.dp))
+        Spacer(Modifier.width(14.dp))
         Box(Modifier.size(34.dp).shadow(5.dp,CircleShape).clip(CircleShape)
             .background(Brush.radialGradient(listOf(Color.White,Color(0xFFE5E0F0),Color(0xFFCFCBE0))))
             .clickable(onClick=toggle),contentAlignment=Alignment.Center) {
             Icon(if(playing)Icons.Rounded.Pause else Icons.Rounded.PlayArrow,"Play or pause",tint=Color(0xFF171522),modifier=Modifier.size(21.dp))
+        }
+        Spacer(Modifier.width(4.dp))
+        Row(
+            Modifier.padding(start=5.dp).height(22.dp),
+            horizontalArrangement=Arrangement.spacedBy(5.dp),
+            verticalAlignment=Alignment.CenterVertically
+        ) {
+            val options = listOf(
+                "purple" to Color(0xFFA855F7),
+                "electric" to Color(0xFF38BDF8),
+                "emerald" to Color(0xFF34D399),
+                "warm" to Color(0xFFFB923C)
+            )
+            options.forEach { (name, color) ->
+                Box(
+                    Modifier.size(if(activeAtmosphere==name) 13.dp else 11.dp)
+                        .clip(CircleShape)
+                        .background(color)
+                        .border(if(activeAtmosphere==name) 1.5.dp else 0.7.dp, Color.White.copy(.8f), CircleShape)
+                        .clickable { onAtmosphere(name) }
+                )
+            }
         }
     }
 }
@@ -441,18 +476,18 @@ private fun SynesthesiaApp(player: ExoPlayer) {
                     // Clip both sides of Haze so the captured blur cannot form a rectangular halo.
                     .clip(organicShape)
                     .hazeChild(state = hazeState) {
-                        blurRadius = 30.dp
-                        backgroundColor = Color(0xFF0E0C1A).copy(.58f)
+                        blurRadius = 16.dp
+                        backgroundColor = Color.Transparent
                         noiseFactor = 0.018f
                         inputScale = HazeInputScale.Fixed(0.66f)
                     }
                     .clip(organicShape)
-                    // Website queue: real 30dp backdrop blur, dark base, liquid fill and three album-reactive washes.
-                    .background(Color(0xFF0E0C1A).copy(.48f))
+                    // Website mobile queue: 16dp backdrop blur, darker frosted base, liquid fill and three album-reactive washes.
+                    .background(Color(0xFF0E0C1A).copy(.62f))
                     .background(Brush.linearGradient(listOf(Color.White.copy(.15f),Color.White.copy(.04f),Color(0xFF0E0C1A).copy(.58f))))
-                    .background(Brush.radialGradient(listOf(palette.first.copy(.30f),Color.Transparent),radius=850f,center=androidx.compose.ui.geometry.Offset(500f,1200f)))
-                    .background(Brush.radialGradient(listOf(palette.second.copy(.18f),Color.Transparent),radius=620f,center=androidx.compose.ui.geometry.Offset(0f,0f)))
-                    .background(Brush.radialGradient(listOf(palette.third.copy(.22f),Color.Transparent),radius=500f,center=androidx.compose.ui.geometry.Offset(300f,-60f)))
+                    .background(Brush.radialGradient(listOf(palette.first.copy(.22f),Color.Transparent),radius=850f,center=androidx.compose.ui.geometry.Offset(500f,1200f)))
+                    .background(Brush.radialGradient(listOf(palette.second.copy(.13f),Color.Transparent),radius=620f,center=androidx.compose.ui.geometry.Offset(0f,0f)))
+                    .background(Brush.radialGradient(listOf(palette.third.copy(.14f),Color.Transparent),radius=500f,center=androidx.compose.ui.geometry.Offset(300f,-60f)))
                     .border(1.dp,Brush.verticalGradient(listOf(Color.White.copy(.42f),Color.White.copy(.17f),Color.White.copy(.07f))),organicShape)
                     .clickable(onClick={})
                     .padding(horizontal=13.dp,vertical=17.dp),
@@ -626,17 +661,18 @@ private fun formatDuration(ms: Long): String {
     BoxWithConstraints(
         Modifier.widthIn(max=330.dp).fillMaxWidth().height(72.dp)
             .shadow(13.dp,RoundedCornerShape(999.dp),ambientColor=Color.Black.copy(.30f),spotColor=Color.Black.copy(.36f))
-            // Navigation is intentionally calmer than the player: only a soft 4dp blur,
-            // matching the website's 10px backdrop blur and 93% opaque dark material.
+            // Website nav material: 10px backdrop blur and a 93% opaque dark capsule.
+            // The player keeps the stronger 14px mobile blur and richer ambient glow.
             .clip(RoundedCornerShape(999.dp))
             .hazeChild(state = hazeState) {
-                blurRadius = 4.dp
-                backgroundColor = Color(0xFF14141D).copy(.90f)
+                blurRadius = 10.dp
+                backgroundColor = Color.Transparent
                 noiseFactor = 0f
                 inputScale = HazeInputScale.Fixed(0.66f)
             }
             .clip(RoundedCornerShape(999.dp))
-            .background(Brush.linearGradient(listOf(Color.White.copy(.08f),Color.Transparent,Color(0xFF14141D).copy(.93f))))
+            .background(Color(0xFF14141D).copy(.93f))
+            .background(Brush.linearGradient(listOf(Color.White.copy(.08f),Color.Transparent,Color(0xFF14141D).copy(.10f))))
             .border(1.dp,Brush.verticalGradient(listOf(Color.White.copy(.24f),Color.White.copy(.09f))),RoundedCornerShape(999.dp))
             .padding(horizontal=6.dp,vertical=6.dp)
     ) {
