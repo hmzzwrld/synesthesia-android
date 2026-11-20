@@ -286,19 +286,22 @@ private fun SynesthesiaApp(player: ExoPlayer) {
                 }
                 } // End captured background/content layer.
                 if(expandedPlayer && selected!=null) PlayerSheet(selected!!, playing, { if(player.isPlaying) player.pause() else player.play() }, {player.seekToPreviousMediaItem()}, {player.seekToNextMediaItem()}, {expandedPlayer=false}, player, tracks, { expandedPlayer=false; liquidQueueOpen=true })
-                // Website layout: independent floating island and bottom navigation, over the scroll layer.
-                Column(
-                    modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding().padding(horizontal=14.dp).padding(bottom=8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(9.dp)
-                ) {
-                    AnimatedVisibility(selected!=null, enter=fadeIn()+slideInVertically { it/3 }, exit=fadeOut()+slideOutVertically { it/3 }) {
-                        MiniPlayer(selected, playing, { if(player.isPlaying) player.pause() else player.play() }, {expandedPlayer=true}, { liquidQueueOpen=true }, glassHaze, displayedPalette, activeAtmosphere, ::chooseAtmosphere)
-                    }
-                    Navigation(tab,{tab=it}, glassHaze)
-                }
+                // Queue is drawn first; the compact island is drawn above it, just like the website z-index stack.
                 AnimatedVisibility(visible=liquidQueueOpen,enter=fadeIn(tween(160))+slideInVertically(spring(dampingRatio=.78f,stiffness=360f)){it/5},exit=fadeOut(tween(130))+slideOutVertically(tween(180)){it/3}) {
                     LiquidQueueSheet(player, tracks, displayedPalette, glassHaze, { liquidQueueOpen=false })
+                }
+                // The website hides both floating controls while Now Playing is expanded.
+                if (!expandedPlayer) {
+                    Column(
+                        modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding().padding(horizontal=14.dp).padding(bottom=8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(9.dp)
+                    ) {
+                        AnimatedVisibility(selected!=null, enter=fadeIn()+slideInVertically { it/3 }, exit=fadeOut()+slideOutVertically { it/3 }) {
+                            MiniPlayer(selected, playing, { if(player.isPlaying) player.pause() else player.play() }, {expandedPlayer=true}, { liquidQueueOpen=true }, glassHaze, displayedPalette, activeAtmosphere, ::chooseAtmosphere)
+                        }
+                        if (!liquidQueueOpen) Navigation(tab,{tab=it}, glassHaze)
+                    }
                 }
                 if(!hasPermission) PermissionPrompt { launcher.launch(permission) }
                 if(scanning) Box(Modifier.fillMaxSize().background(Color.Black.copy(.35f)), contentAlignment=Alignment.Center) { CircularProgressIndicator(color=ambientPalette.first) }
@@ -471,14 +474,16 @@ private fun SynesthesiaApp(player: ExoPlayer) {
         // Match the website's floating 420px / 48dvh queue, with the player-connected droplets.
         Box(
             Modifier.align(Alignment.BottomCenter)
-                .fillMaxWidth().padding(horizontal=12.dp).padding(bottom=260.dp)
-                .widthIn(max=420.dp).fillMaxHeight(.50f)
+                .fillMaxWidth().padding(horizontal=12.dp).padding(bottom=142.dp)
+                .widthIn(max=420.dp).fillMaxHeight(.48f)
         ) {
-            Box(Modifier.align(Alignment.BottomCenter).offset(y=12.dp).size(16.dp).clip(CircleShape)
-                .background(Brush.linearGradient(listOf(Color.White.copy(.22f),Color(0xFF1E1A30).copy(.72f))))
+            // Website .lq-drop-1 / .lq-drop-2: two glossy droplets descending from the queue's lower edge.
+            Box(Modifier.align(Alignment.BottomCenter).offset(y=14.dp).size(16.dp).shadow(10.dp,CircleShape,ambientColor=palette.first.copy(.32f))
+                .clip(CircleShape).background(Brush.linearGradient(listOf(Color.White.copy(.28f),Color(0xFF1E1A30).copy(.72f))))
+                .border(1.dp,Color.White.copy(.24f),CircleShape))
+            Box(Modifier.align(Alignment.BottomCenter).offset(y=27.dp).size(8.dp).shadow(7.dp,CircleShape,ambientColor=palette.second.copy(.30f))
+                .clip(CircleShape).background(Brush.linearGradient(listOf(Color.White.copy(.24f),palette.first.copy(.18f))))
                 .border(1.dp,Color.White.copy(.22f),CircleShape))
-            Box(Modifier.align(Alignment.BottomCenter).offset(y=25.dp).size(8.dp).clip(CircleShape)
-                .background(Color.White.copy(.14f)).border(1.dp,Color.White.copy(.2f),CircleShape))
             Box(
                 Modifier.fillMaxSize()
                     .shadow(28.dp,organicShape,ambientColor=accent.copy(.20f),spotColor=Color.Black.copy(.56f))
@@ -652,13 +657,14 @@ private fun SynesthesiaApp(player: ExoPlayer) {
         Box(Modifier.fillMaxSize().background(Brush.radialGradient(
             listOf(Color(0xFF7655A8).copy(.22f), Color(0xFF080812).copy(.38f), Color.Transparent), radius=1100f
         )))
-        // Keep the compact island and navigation visible. The expanded surface grows from
-        // directly above the island instead of replacing it with an unrelated full-screen card.
+        // The website hides the mini-player and navigation while expanded. Respect the status-bar/notch inset.
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Black.copy(.22f),Color.Transparent,Color.Transparent))).clickable(onClick=close))
         BoxWithConstraints(Modifier.fillMaxSize()) {
-            val expandedHeight = (maxHeight - 182.dp).coerceAtLeast(420.dp)
+            val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+            val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+            val expandedHeight = (maxHeight - topInset - bottomInset - 28.dp).coerceAtLeast(400.dp)
             Column(
-                Modifier.align(Alignment.TopCenter).padding(top=12.dp).fillMaxWidth().height(expandedHeight).padding(horizontal=12.dp).widthIn(max=440.dp)
+                Modifier.align(Alignment.TopCenter).padding(top=topInset + 10.dp).fillMaxWidth().height(expandedHeight).padding(horizontal=12.dp).widthIn(max=440.dp)
                     .shadow(26.dp,panelShape,ambientColor=Color(0xFF7655A8).copy(.18f),spotColor=Color.Black.copy(.42f))
                     .clip(panelShape)
                     .background(Color(0xFF171522).copy(.72f))
@@ -732,18 +738,7 @@ private fun SynesthesiaApp(player: ExoPlayer) {
                     Icon(Icons.Rounded.KeyboardArrowUp,null,tint=Muted,modifier=Modifier.size(20.dp))
                 }
             }
-            // A glossy liquid neck physically bridges the expanded panel to the mini-player.
-            // Its lower end overlaps the island's top edge, so the two surfaces read as one object.
-            Box(
-                Modifier.align(Alignment.BottomCenter).padding(bottom=142.dp).width(34.dp).height(44.dp)
-                    .graphicsLayer { alpha=tetherPulse }
-                    .clip(RoundedCornerShape(topStart=15.dp,topEnd=15.dp,bottomStart=999.dp,bottomEnd=999.dp))
-                    .background(Brush.verticalGradient(listOf(Color.White.copy(.26f),Color(0xFFB9A8FF).copy(.20f),Color(0xFF7655A8).copy(.12f),Color.Transparent)))
-                    .border(1.dp,Brush.verticalGradient(listOf(Color.White.copy(.30f),Color.White.copy(.10f),Color.Transparent)),RoundedCornerShape(999.dp))
-            )
-            Box(Modifier.align(Alignment.BottomCenter).padding(bottom=151.dp).size(12.dp)
-                .shadow(12.dp,CircleShape,ambientColor=Color(0xFFFF3D8B).copy(.34f))
-                .clip(CircleShape).background(Brush.radialGradient(listOf(Color.White.copy(.72f),Color(0xFFFF3D8B).copy(.35f),Color.Transparent))))
+
         }
     }
 }
