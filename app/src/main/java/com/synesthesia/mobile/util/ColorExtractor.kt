@@ -89,9 +89,35 @@ object ColorExtractor {
             if (chosen.size == 3) break
         }
         fun toColor(index: Int, fallback: Color): Color {
-            val rgb = chosen.getOrNull(index) ?: return fallback
-            return Color(rgb[0] / 255f, rgb[1] / 255f, rgb[2] / 255f, 1f)
+            val rgb = chosen.getOrNull(index) ?: return liftForContrast(fallback)
+            val extracted = Color(rgb[0] / 255f, rgb[1] / 255f, rgb[2] / 255f, 1f)
+            return liftForContrast(extracted)
         }
         return Triple(toColor(0, defaultA), toColor(1, defaultB), toColor(2, defaultC))
+    }
+
+    /**
+     * Artwork still determines the hue, but very dark colours are lifted before they are
+     * used for controls. Near-black / low-saturation artwork becomes a soft silver-grey;
+     * dark chromatic colours keep their hue (e.g. forest green becomes a clearer green).
+     */
+    private fun liftForContrast(color: Color): Color {
+        val hsv = FloatArray(3)
+        android.graphics.Color.RGBToHSV(
+            (color.red * 255f).toInt(),
+            (color.green * 255f).toInt(),
+            (color.blue * 255f).toInt(),
+            hsv
+        )
+        val saturation = hsv[1]
+        val value = hsv[2]
+        if (saturation < 0.16f || value < 0.13f) {
+            // Neutral artwork should not produce invisible black controls.
+            val grey = value.coerceIn(0.62f, 0.78f)
+            return Color(grey, grey, (grey * 1.035f).coerceAtMost(0.84f), 1f)
+        }
+        hsv[1] = saturation.coerceAtLeast(0.48f).coerceAtMost(0.78f)
+        hsv[2] = value.coerceAtLeast(0.70f).coerceAtMost(0.94f)
+        return Color(android.graphics.Color.HSVToColor(hsv))
     }
 }

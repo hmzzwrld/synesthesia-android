@@ -41,3 +41,14 @@ The GitHub Actions workflow builds `app-debug.apk` with Gradle 8.7, Android Grad
 - Settings includes a persisted Dark/Light appearance choice (Dark is the default) and the Settings header has more top spacing.
 - Expanded-player accents use the current album/atmosphere palette for Now Playing, album metadata, seek bar, queue indicator and playback controls.
 - Play/pause now uses a spring rotation and scale transition with an animated icon swap.
+
+
+## v15 playback and visual refinements
+
+- The bottom navigation remains visible and fixed while the mini-player's floating Liquid Queue is open.
+- Corrected the expanded-player play glyph so the idle play arrow is not rotated.
+- Album-derived accents preserve their hue but are lifted when too dark; near-black/low-saturation art maps to a readable soft grey, and dark chromatic hues (such as green) are brightened.
+- Added a Media3 `MediaSessionService` around the shared ExoPlayer instance. Android can now publish the standard media notification and expose play/pause/previous/next controls to the lock screen, Bluetooth devices and headset media buttons while the Activity is backgrounded.
+- Track title, artist, album and artwork URI are attached to each media item for system media metadata.
+
+The notification and lock-screen presentation are rendered by Android from the app's MediaSession metadata; their exact appearance varies by Android version and device manufacturer.

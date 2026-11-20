@@ -4,6 +4,8 @@ import android.Manifest
 import android.media.MediaMetadataRetriever
 import android.media.audiofx.Equalizer
 import android.content.ContentUris
+import android.content.Intent
+import android.content.ComponentName
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -61,8 +63,12 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
+import com.google.common.util.concurrent.ListenableFuture
 import coil.compose.AsyncImage
 import dev.chrisbanes.haze.HazeInputScale
 import dev.chrisbanes.haze.HazeState
@@ -89,6 +95,7 @@ private enum class LibraryTab(val label: String) { SONGS("Songs"), ALBUMS("Album
 
 class MainActivity : ComponentActivity() {
     private var player: ExoPlayer? = null
+    private var mediaControllerFuture: ListenableFuture<MediaController>? = null
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -96,10 +103,24 @@ class MainActivity : ComponentActivity() {
         window.navigationBarColor = android.graphics.Color.TRANSPARENT
         WindowInsetsControllerCompat(window, window.decorView).isAppearanceLightStatusBars = false
         WindowInsetsControllerCompat(window, window.decorView).isAppearanceLightNavigationBars = false
-        player = ExoPlayer.Builder(this).build()
+        // Keep the playback engine alive independently of the Activity so the media session
+        // and its notification/lock-screen controls survive when the UI is backgrounded.
+        startService(Intent(this, PlaybackService::class.java))
+        player = PlaybackPlayer.get(this)
+        // Keep a controller bound while the UI is alive. The service itself owns the
+        // MediaSession and takes over foreground playback when the Activity is backgrounded.
+        val token = SessionToken(this, ComponentName(this, PlaybackService::class.java))
+        mediaControllerFuture = MediaController.Builder(this, token).buildAsync().also { future ->
+            future.addListener({ runCatching { future.get() } }, ContextCompat.getMainExecutor(this))
+        }
         setContent { SynesthesiaApp(player!!) }
     }
-    override fun onDestroy() { player?.release(); player = null; super.onDestroy() }
+    override fun onDestroy() {
+        mediaControllerFuture?.let { MediaController.releaseFuture(it) }
+        mediaControllerFuture = null
+        player = null
+        super.onDestroy()
+    }
 }
 
 @Composable
@@ -133,7 +154,16 @@ private fun SynesthesiaApp(player: ExoPlayer) {
     fun play(track: LocalTrack) {
         selected = track
         val index = tracks.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
-        player.setMediaItems(tracks.map { MediaItem.Builder().setUri(it.uri).setMediaId(it.id.toString()).build() }, index, 0L)
+        player.setMediaItems(tracks.map { item ->
+            val metadata = MediaMetadata.Builder()
+                .setTitle(item.title)
+                .setArtist(item.artist)
+                .setAlbumTitle(item.album)
+                .apply { item.artwork?.let { artworkUri -> setArtworkUri(artworkUri) } }
+                .build()
+            MediaItem.Builder().setUri(item.uri).setMediaId(item.id.toString())
+                .setMediaMetadata(metadata).build()
+        }, index, 0L)
         player.prepare(); player.play(); playing = true
         val count = (playCounts[track.id] ?: 0) + 1
         playCounts = playCounts + (track.id to count)
@@ -308,7 +338,9 @@ private fun SynesthesiaApp(player: ExoPlayer) {
                         AnimatedVisibility(selected!=null, enter=fadeIn()+slideInVertically { it/3 }, exit=fadeOut()+slideOutVertically { it/3 }) {
                             MiniPlayer(selected, playing, { if(player.isPlaying) player.pause() else player.play() }, {expandedPlayer=true}, { liquidQueueOpen=true }, glassHaze, displayedPalette, activeAtmosphere, ::chooseAtmosphere)
                         }
-                        if (!liquidQueueOpen) Navigation(tab,{tab=it}, glassHaze)
+                        // Keep the navigation capsule anchored at the bottom while the floating
+                        // Liquid Queue opens above the mini-player.
+                        Navigation(tab,{tab=it}, glassHaze)
                     }
                 }
                 if(settingsOpen) {
@@ -758,11 +790,10 @@ private fun SynesthesiaApp(player: ExoPlayer) {
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically) {
                     IconButton(onClick={shuffle=!shuffle;player.shuffleModeEnabled=shuffle},modifier=Modifier.size(42.dp)) { Icon(Icons.Rounded.Shuffle,"Shuffle",tint=if(shuffle)accent else Muted,modifier=Modifier.size(21.dp)) }
                     IconButton(onClick=previous,modifier=Modifier.size(42.dp)) { Icon(Icons.Rounded.SkipPrevious,"Previous",tint=White,modifier=Modifier.size(28.dp)) }
-                    val playRotation by androidx.compose.animation.core.animateFloatAsState(if(playing) 0f else -90f, animationSpec=spring(dampingRatio=.62f,stiffness=420f), label="play-pause-rotation")
                     val playScale by animateFloatAsState(if(playing) 1f else .94f, tween(220), label="play-pause-scale")
                     FilledIconButton(toggle,colors=IconButtonDefaults.filledIconButtonColors(containerColor=accent,contentColor=Color(0xFF05050D)),modifier=Modifier.size(70.dp).graphicsLayer { scaleX=playScale; scaleY=playScale }) {
                         AnimatedContent(playing, transitionSpec={ fadeIn(tween(120))+androidx.compose.animation.scaleIn(tween(180)) togetherWith fadeOut(tween(90))+androidx.compose.animation.scaleOut(tween(120)) }, label="play-pause-icon") { isPlaying ->
-                            Icon(if(isPlaying)Icons.Rounded.Pause else Icons.Rounded.PlayArrow,"Play or pause",modifier=Modifier.size(36.dp).graphicsLayer { rotationZ=playRotation })
+                            Icon(if(isPlaying)Icons.Rounded.Pause else Icons.Rounded.PlayArrow,"Play or pause",modifier=Modifier.size(36.dp))
                         }
                     }
                     IconButton(onClick=next,modifier=Modifier.size(42.dp)) { Icon(Icons.Rounded.SkipNext,"Next",tint=White,modifier=Modifier.size(28.dp)) }
