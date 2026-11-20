@@ -387,7 +387,7 @@ private fun SynesthesiaApp(player: ExoPlayer) {
                         IconButton(onClick=close) { Icon(Icons.Rounded.Close,"Close queue",tint=White) }
                     }
                 }
-                Row(Modifier.fillMaxWidth().padding(horizontal=5.dp,bottom=2.dp),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().padding(start=5.dp,end=5.dp,bottom=2.dp),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
                     Text("NOW PLAYING  ·  UP NEXT",color=Muted,fontSize=9.sp,letterSpacing=1.4.sp)
                     TextButton(onClick={ for(i in player.mediaItemCount-1 downTo player.currentMediaItemIndex+1) player.removeMediaItem(i); queueRevision++ },enabled=player.mediaItemCount>player.currentMediaItemIndex+1) { Text("Clear upcoming",color=accent,fontSize=11.sp) }
                 }
