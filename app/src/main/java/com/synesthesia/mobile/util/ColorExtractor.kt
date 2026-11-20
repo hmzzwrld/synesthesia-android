@@ -56,7 +56,7 @@ object ColorExtractor {
         val scaledBitmap = Bitmap.createScaledBitmap(bitmap, width, height, true)
 
         // Mirror the website's 3-bit RGB histogram and saturation-weighted colour ranking.
-        val buckets = linkedMapOf<Int, Pair<FloatArray, Float>>()
+        val buckets = linkedMapOf<String, Pair<FloatArray, Float>>()
         for (x in 0 until width) {
             for (y in 0 until height) {
                 val pixel = scaledBitmap.getPixel(x, y)
