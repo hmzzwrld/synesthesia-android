@@ -79,8 +79,8 @@ object ColorExtractor {
             }
         }
         if (buckets.isEmpty()) return Triple(defaultA, defaultB, defaultC)
-        val ranked = buckets.values.map { (sum, weight) -> FloatArray(3) { (sum[it] / weight).coerceIn(0f, 255f) } }
-            .sortedByDescending { it[0] + it[1] + it[2] }
+        val ranked = buckets.values.sortedByDescending { it.second }
+            .map { (sum, weight) -> FloatArray(3) { (sum[it] / weight).coerceIn(0f, 255f) } }
         val chosen = mutableListOf<FloatArray>()
         for (rgb in ranked) {
             if (chosen.all { old -> kotlin.math.sqrt(((old[0]-rgb[0])*(old[0]-rgb[0]) + (old[1]-rgb[1])*(old[1]-rgb[1]) + (old[2]-rgb[2])*(old[2]-rgb[2])).toDouble()) > 65.0 }) {

@@ -18,6 +18,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -43,6 +44,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -244,7 +246,7 @@ private fun SynesthesiaApp(player: ExoPlayer) {
                     verticalArrangement = Arrangement.spacedBy(9.dp)
                 ) {
                     AnimatedVisibility(selected!=null, enter=fadeIn()+slideInVertically { it/3 }, exit=fadeOut()+slideOutVertically { it/3 }) {
-                        MiniPlayer(selected, playing, { if(player.isPlaying) player.pause() else player.play() }, {expandedPlayer=true}, { liquidQueueOpen=true }, glassHaze)
+                        MiniPlayer(selected, playing, { if(player.isPlaying) player.pause() else player.play() }, {expandedPlayer=true}, { liquidQueueOpen=true }, glassHaze, ambientPalette.first)
                     }
                     Navigation(tab,{tab=it}, glassHaze)
                 }
@@ -306,47 +308,71 @@ private fun SynesthesiaApp(player: ExoPlayer) {
 @Composable private fun CollectionRow(title:String,subtitle:String,detail:String,art:Uri?,click:()->Unit){ Row(Modifier.fillMaxWidth().clickable(onClick=click).padding(vertical=8.dp),verticalAlignment=Alignment.CenterVertically){Artwork(art,50);Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(title,color=White,fontWeight=FontWeight.SemiBold);Text(subtitle,color=Muted,fontSize=11.sp)};Text(detail,color=Muted,fontSize=10.sp)} }
 @Composable private fun Artwork(uri:Uri?,size:Int){ Box(Modifier.size(size.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF282139)),contentAlignment=Alignment.Center){ if(uri!=null) AsyncImage(uri,null,Modifier.fillMaxSize()) else Icon(Icons.Rounded.Album,null,tint=Lavender,modifier=Modifier.size((size/2).dp)) } }
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
-@Composable private fun MiniPlayer(track:LocalTrack?,playing:Boolean,toggle:()->Unit,expand:()->Unit,openQueue:()->Unit,hazeState:HazeState){
+@Composable private fun MiniPlayer(track:LocalTrack?,playing:Boolean,toggle:()->Unit,expand:()->Unit,openQueue:()->Unit,hazeState:HazeState,ambientTint:Color){
     if(track==null)return
     val podShape = RoundedCornerShape(999.dp)
+    // A short elastic width pulse mirrors the website's springy island expansion.
+    var trackChanged by remember { mutableStateOf(false) }
+    LaunchedEffect(track.id) {
+        trackChanged = true
+        kotlinx.coroutines.delay(180)
+        trackChanged = false
+    }
+    val podScaleX by animateFloatAsState(
+        targetValue = if(trackChanged) 1.035f else 1f,
+        animationSpec = spring(dampingRatio=.58f, stiffness=420f),
+        label = "pod-elastic-x"
+    )
+    val podScaleY by animateFloatAsState(
+        targetValue = if(trackChanged) .965f else 1f,
+        animationSpec = spring(dampingRatio=.58f, stiffness=420f),
+        label = "pod-elastic-y"
+    )
+    val podTint by androidx.compose.animation.animateColorAsState(targetValue=ambientTint, animationSpec=tween(1800), label="pod-album-tint")
+    val targetMetaWidth = (track.title.length * 7.1f).coerceIn(76f,138f).dp
+    val metaWidth by animateDpAsState(
+        targetValue = targetMetaWidth,
+        animationSpec = spring(dampingRatio=.62f, stiffness=340f),
+        label = "pod-title-width"
+    )
     Row(
         Modifier
             .widthIn(max=390.dp)
             .wrapContentWidth()
-            .animateContentSize(spring(dampingRatio=.72f, stiffness=420f))
-            // Website --liquid-blur: blur(28px) saturate(170%). Downsampled capture keeps it mobile-friendly.
+            .animateContentSize(spring(dampingRatio=.62f, stiffness=340f))
+            .graphicsLayer { this.scaleX = podScaleX; this.scaleY = podScaleY }
+            .shadow(20.dp, podShape, ambientColor=Color.Black.copy(.42f), spotColor=Color.Black.copy(.52f))
+            // Clip BEFORE the backdrop effect and again afterwards: this prevents Haze's
+            // rectangular capture layer from leaking beyond the pill's rounded silhouette.
+            .clip(podShape)
             .hazeChild(state = hazeState) {
                 blurRadius = 28.dp
-                backgroundColor = Color.Transparent
-                noiseFactor = 0.025f
+                backgroundColor = Color(0xFF0E0E18).copy(.36f)
+                noiseFactor = 0.018f
                 inputScale = HazeInputScale.Fixed(0.66f)
             }
-            .shadow(20.dp, podShape, ambientColor=Color.Black.copy(.42f), spotColor=Color.Black.copy(.52f))
             .clip(podShape)
-            // Website background stack: rgba(14,14,24,.42) base + --liquid-fill gradient.
+            // Website material: dark translucent base, liquid fill, ambient tint and gloss.
             .background(Color(0xFF0E0E18).copy(.42f))
             .background(Brush.linearGradient(listOf(Color.White.copy(.14f),Color.White.copy(.04f),Color(0xFF141222).copy(.38f))))
-            .background(Brush.radialGradient(listOf(Color(0xFFFF3D8B).copy(.15f),Color.Transparent),radius=430f))
+            .background(Brush.radialGradient(listOf(podTint.copy(.20f),Color.Transparent),radius=430f))
             .background(Brush.radialGradient(listOf(Color.White.copy(.23f),Color.Transparent),radius=250f,center=androidx.compose.ui.geometry.Offset(100f,-35f)))
             .border(1.dp,Brush.verticalGradient(listOf(Color.White.copy(.42f),Color.White.copy(.17f),Color.White.copy(.07f))),podShape)
             .combinedClickable(onClick=expand,onLongClick=openQueue)
-            // Website pod: 13px vertical / 13px left / 18px right, scaled to dp.
             .padding(start=11.dp,end=10.dp,top=10.dp,bottom=10.dp),
         verticalAlignment=Alignment.CenterVertically
     ) {
-        // The website uses a 46px ring around a 38px rotating artwork.
         Box(Modifier.size(46.dp).border(1.5.dp,Color.White.copy(.23f),CircleShape).padding(3.dp)
             .clip(CircleShape).background(Color.White.copy(.08f))) {
             Artwork(track.artwork,40)
         }
         Spacer(Modifier.width(10.dp))
-        Column(Modifier.widthIn(min=76.dp,max=138.dp).padding(vertical=1.dp)) {
+        Column(Modifier.width(metaWidth).padding(vertical=1.dp)) {
             Text(track.title,color=White,fontSize=12.sp,fontWeight=FontWeight.SemiBold,maxLines=1,overflow=TextOverflow.Ellipsis)
             Spacer(Modifier.height(2.dp))
             Text(track.artist,color=Muted,fontSize=10.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
         }
         Spacer(Modifier.width(5.dp))
-        // Compact controls keep the pod content-sized rather than stretching across the screen.
         Box(Modifier.size(32.dp).clip(CircleShape).background(Color.White.copy(.075f))
             .clickable(onClick=openQueue),contentAlignment=Alignment.Center) {
             Icon(Icons.Rounded.QueueMusic,"Open Liquid Queue",tint=Color.White.copy(.88f),modifier=Modifier.size(17.dp))
@@ -359,6 +385,7 @@ private fun SynesthesiaApp(player: ExoPlayer) {
         }
     }
 }
+
 
 @Composable private fun LiquidQueueSheet(player:ExoPlayer, library:List<LocalTrack>, accent:Color, close:()->Unit) {
     var queueRevision by remember { mutableIntStateOf(0) }
@@ -559,14 +586,16 @@ private fun formatDuration(ms: Long): String {
     val index=Tab.values().indexOf(tab)
     BoxWithConstraints(
         Modifier.widthIn(max=330.dp).fillMaxWidth().height(72.dp)
-            // Website nav uses a 10px blur and a near-solid rgba(20,20,29,.93) base.
+            .shadow(13.dp,RoundedCornerShape(999.dp),ambientColor=Color.Black.copy(.30f),spotColor=Color.Black.copy(.36f))
+            // Navigation is intentionally calmer than the player: only a soft 4dp blur,
+            // matching the website's 10px backdrop blur and 93% opaque dark material.
+            .clip(RoundedCornerShape(999.dp))
             .hazeChild(state = hazeState) {
-                blurRadius = 10.dp
-                backgroundColor = Color.Transparent
+                blurRadius = 4.dp
+                backgroundColor = Color(0xFF14141D).copy(.90f)
                 noiseFactor = 0f
                 inputScale = HazeInputScale.Fixed(0.66f)
             }
-            .shadow(13.dp,RoundedCornerShape(999.dp),ambientColor=Color.Black.copy(.30f),spotColor=Color.Black.copy(.36f))
             .clip(RoundedCornerShape(999.dp))
             .background(Brush.linearGradient(listOf(Color.White.copy(.08f),Color.Transparent,Color(0xFF14141D).copy(.93f))))
             .border(1.dp,Brush.verticalGradient(listOf(Color.White.copy(.24f),Color.White.copy(.09f))),RoundedCornerShape(999.dp))
