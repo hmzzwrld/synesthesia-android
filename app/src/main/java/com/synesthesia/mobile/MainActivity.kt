@@ -19,6 +19,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -284,6 +285,7 @@ private fun SynesthesiaApp(player: ExoPlayer) {
                     }
                 }
                 } // End captured background/content layer.
+                if(expandedPlayer && selected!=null) PlayerSheet(selected!!, playing, { if(player.isPlaying) player.pause() else player.play() }, {player.seekToPreviousMediaItem()}, {player.seekToNextMediaItem()}, {expandedPlayer=false}, player, tracks, { expandedPlayer=false; liquidQueueOpen=true })
                 // Website layout: independent floating island and bottom navigation, over the scroll layer.
                 Column(
                     modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding().padding(horizontal=14.dp).padding(bottom=8.dp),
@@ -295,7 +297,6 @@ private fun SynesthesiaApp(player: ExoPlayer) {
                     }
                     Navigation(tab,{tab=it}, glassHaze)
                 }
-                if(expandedPlayer && selected!=null) PlayerSheet(selected!!, playing, { if(player.isPlaying) player.pause() else player.play() }, {player.seekToPreviousMediaItem()}, {player.seekToNextMediaItem()}, {expandedPlayer=false}, player, tracks, { expandedPlayer=false; liquidQueueOpen=true })
                 AnimatedVisibility(visible=liquidQueueOpen,enter=fadeIn(tween(160))+slideInVertically(spring(dampingRatio=.78f,stiffness=360f)){it/5},exit=fadeOut(tween(130))+slideOutVertically(tween(180)){it/3}) {
                     LiquidQueueSheet(player, tracks, displayedPalette, glassHaze, { liquidQueueOpen=false })
                 }
@@ -638,18 +639,26 @@ private fun SynesthesiaApp(player: ExoPlayer) {
     }
     val nextTrack = queue.getOrNull(player.currentMediaItemIndex + 1)
     val panelShape = RoundedCornerShape(48.dp)
-    Box(Modifier.fillMaxSize().background(Color(0xFF070711).copy(.42f))) {
+    val tetherPulse by androidx.compose.animation.core.rememberInfiniteTransition(label="player-pod-tether")
+        .animateFloat(initialValue=.72f,targetValue=1f,animationSpec=androidx.compose.animation.core.infiniteRepeatable(
+            animation=tween(1500),repeatMode=androidx.compose.animation.core.RepeatMode.Reverse
+        ),label="player-pod-tether-pulse")
+    Box(Modifier.fillMaxSize()) {
         // Artwork-derived atmosphere sits behind the same liquid surface used by the website.
         if (track.artwork != null) {
             AsyncImage(model=track.artwork, contentDescription=null, contentScale=ContentScale.Crop,
                 modifier=Modifier.fillMaxSize().blur(64.dp), alpha=.48f)
         }
         Box(Modifier.fillMaxSize().background(Brush.radialGradient(
-            listOf(Color(0xFF7655A8).copy(.22f), Color(0xFF080812).copy(.78f)), radius=1100f
+            listOf(Color(0xFF7655A8).copy(.22f), Color(0xFF080812).copy(.38f), Color.Transparent), radius=1100f
         )))
-        Box(Modifier.fillMaxSize().clickable(onClick=close).padding(horizontal=12.dp, vertical=16.dp), contentAlignment=Alignment.Center) {
+        // Keep the compact island and navigation visible. The expanded surface grows from
+        // directly above the island instead of replacing it with an unrelated full-screen card.
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Black.copy(.22f),Color.Transparent,Color.Transparent))).clickable(onClick=close))
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val expandedHeight = (maxHeight - 182.dp).coerceAtLeast(420.dp)
             Column(
-                Modifier.fillMaxWidth().fillMaxHeight(.96f).widthIn(max=440.dp)
+                Modifier.align(Alignment.TopCenter).padding(top=12.dp).fillMaxWidth().height(expandedHeight).padding(horizontal=12.dp).widthIn(max=440.dp)
                     .shadow(26.dp,panelShape,ambientColor=Color(0xFF7655A8).copy(.18f),spotColor=Color.Black.copy(.42f))
                     .clip(panelShape)
                     .background(Color(0xFF171522).copy(.72f))
@@ -723,6 +732,18 @@ private fun SynesthesiaApp(player: ExoPlayer) {
                     Icon(Icons.Rounded.KeyboardArrowUp,null,tint=Muted,modifier=Modifier.size(20.dp))
                 }
             }
+            // A glossy liquid neck physically bridges the expanded panel to the mini-player.
+            // Its lower end overlaps the island's top edge, so the two surfaces read as one object.
+            Box(
+                Modifier.align(Alignment.BottomCenter).padding(bottom=142.dp).width(34.dp).height(44.dp)
+                    .graphicsLayer { alpha=tetherPulse }
+                    .clip(RoundedCornerShape(topStart=15.dp,topEnd=15.dp,bottomStart=999.dp,bottomEnd=999.dp))
+                    .background(Brush.verticalGradient(listOf(Color.White.copy(.26f),Color(0xFFB9A8FF).copy(.20f),Color(0xFF7655A8).copy(.12f),Color.Transparent)))
+                    .border(1.dp,Brush.verticalGradient(listOf(Color.White.copy(.30f),Color.White.copy(.10f),Color.Transparent)),RoundedCornerShape(999.dp))
+            )
+            Box(Modifier.align(Alignment.BottomCenter).padding(bottom=151.dp).size(12.dp)
+                .shadow(12.dp,CircleShape,ambientColor=Color(0xFFFF3D8B).copy(.34f))
+                .clip(CircleShape).background(Brush.radialGradient(listOf(Color.White.copy(.72f),Color(0xFFFF3D8B).copy(.35f),Color.Transparent))))
         }
     }
 }
