@@ -34,3 +34,10 @@ The current Android playback engine is still Activity-owned. Persistent backgrou
 ## Build
 
 The GitHub Actions workflow builds `app-debug.apk` with Gradle 8.7, Android Gradle Plugin 8.6.1, JDK 17 and Android SDK 35. ZIP integrity and Kotlin parser checks are run before delivery. A full Gradle/Android build must still be confirmed by GitHub Actions; do not treat source parsing as a successful APK build.
+
+## v13 interaction and player polish
+- Settings now consumes touches as a full-screen modal layer and handles Back to close, preventing controls beneath Settings from receiving taps.
+- Expanded-player Queue now toggles an in-artwork smart queue overlay; it no longer opens the separate floating Liquid Queue. The floating queue remains available from the mini-player.
+- Settings includes a persisted Dark/Light appearance choice (Dark is the default) and the Settings header has more top spacing.
+- Expanded-player accents use the current album/atmosphere palette for Now Playing, album metadata, seek bar, queue indicator and playback controls.
+- Play/pause now uses a spring rotation and scale transition with an animated icon swap.

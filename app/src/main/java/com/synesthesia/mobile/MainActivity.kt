@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -112,6 +113,8 @@ private fun SynesthesiaApp(player: ExoPlayer) {
     var playing by remember { mutableStateOf(false) }
     var expandedPlayer by remember { mutableStateOf(false) }
     var settingsOpen by remember { mutableStateOf(false) }
+    val appearancePrefs = remember { context.getSharedPreferences("synesthesia_appearance", 0) }
+    var lightTheme by remember { mutableStateOf(appearancePrefs.getBoolean("light_theme", false)) }
     var equalizerOpen by remember { mutableStateOf(false) }
     var liquidQueueOpen by remember { mutableStateOf(false) }
     var scanning by remember { mutableStateOf(false) }
@@ -202,7 +205,7 @@ private fun SynesthesiaApp(player: ExoPlayer) {
     val ambientB by androidx.compose.animation.animateColorAsState(ambientPalette.second, tween(1800), label="ambient-b")
     val ambientC by androidx.compose.animation.animateColorAsState(ambientPalette.third, tween(1800), label="ambient-c")
     val displayedPalette = Triple(ambientA, ambientB, ambientC)
-    MaterialTheme(colorScheme = darkColorScheme(primary=ambientPalette.first, background=Ink, surface=Color(0xFF12121E), onSurface=White)) {
+    MaterialTheme(colorScheme = if (lightTheme) lightColorScheme(primary=ambientPalette.first, background=Color(0xFFF4F2F8), surface=Color(0xFFFFFFFF), onSurface=Color(0xFF171522)) else darkColorScheme(primary=ambientPalette.first, background=Ink, surface=Color(0xFF12121E), onSurface=White)) {
         SynesthesiaAtmosphere(ambA=displayedPalette.first, ambB=displayedPalette.second, ambC=displayedPalette.third) {
             Box(Modifier.fillMaxSize()) {
                 // Capture the page behind floating controls so their surfaces can use real backdrop blur.
@@ -213,8 +216,9 @@ private fun SynesthesiaApp(player: ExoPlayer) {
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize().blur(1.2.dp),
-                    alpha = 0.82f
+                    alpha = if (lightTheme) 0.30f else 0.82f
                 )
+                if (lightTheme) Box(Modifier.fillMaxSize().background(Color(0xFFF4F2F8).copy(alpha=.58f)))
                 Box(
                     Modifier.fillMaxSize().background(
                         Brush.linearGradient(
@@ -288,7 +292,7 @@ private fun SynesthesiaApp(player: ExoPlayer) {
                     }
                 }
                 } // End captured background/content layer.
-                if(expandedPlayer && selected!=null) PlayerSheet(selected!!, playing, { if(player.isPlaying) player.pause() else player.play() }, {player.seekToPreviousMediaItem()}, {player.seekToNextMediaItem()}, {expandedPlayer=false}, player, tracks, { expandedPlayer=false; liquidQueueOpen=true }, { equalizerOpen=true })
+                if(expandedPlayer && selected!=null) PlayerSheet(selected!!, playing, { if(player.isPlaying) player.pause() else player.play() }, {player.seekToPreviousMediaItem()}, {player.seekToNextMediaItem()}, {expandedPlayer=false}, player, tracks, displayedPalette, { equalizerOpen=true })
                 // Queue is drawn first; the compact island is drawn above it, just like the website z-index stack.
                 AnimatedVisibility(visible=liquidQueueOpen,enter=fadeIn(tween(160))+slideInVertically(spring(dampingRatio=.78f,stiffness=360f)){it/5},exit=fadeOut(tween(130))+slideOutVertically(tween(180)){it/3}) {
                     LiquidQueueSheet(player, tracks, displayedPalette, glassHaze, { liquidQueueOpen=false })
@@ -306,7 +310,10 @@ private fun SynesthesiaApp(player: ExoPlayer) {
                         if (!liquidQueueOpen) Navigation(tab,{tab=it}, glassHaze)
                     }
                 }
-                if(settingsOpen) SettingsScreen(tracks, { settingsOpen=false }, { if(hasPermission) scope.launch { scan() } else launcher.launch(permission) })
+                if(settingsOpen) {
+                    BackHandler(enabled=true) { settingsOpen=false }
+                    SettingsScreen(tracks, lightTheme, { lightTheme=it; appearancePrefs.edit().putBoolean("light_theme",it).apply() }, { settingsOpen=false }, { if(hasPermission) scope.launch { scan() } else launcher.launch(permission) })
+                }
                 if(equalizerOpen) EqualizerSheet(player.audioSessionId, { equalizerOpen=false })
                 if(!hasPermission) PermissionPrompt { launcher.launch(permission) }
                 if(scanning) Box(Modifier.fillMaxSize().background(Color.Black.copy(.35f)), contentAlignment=Alignment.Center) { CircularProgressIndicator(color=ambientPalette.first) }
@@ -342,7 +349,7 @@ private fun SynesthesiaApp(player: ExoPlayer) {
 }
 
 @Composable private fun TrackRow(track:LocalTrack,onPlay:(LocalTrack)->Unit,plays:Int?=null,rank:Int?=null) {
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(19.dp))
+    Row(Modifier.fillMaxWidth().animateContentSize(spring(dampingRatio=.86f, stiffness=420f)).clip(RoundedCornerShape(19.dp))
         .background(Brush.horizontalGradient(listOf(Color.White.copy(.075f),Color.White.copy(.025f),Color.Transparent)))
         .border(.6.dp,Color.White.copy(.065f),RoundedCornerShape(19.dp))
         .clickable{onPlay(track)}.padding(horizontal=9.dp,vertical=9.dp),verticalAlignment=Alignment.CenterVertically) {
@@ -358,7 +365,7 @@ private fun SynesthesiaApp(player: ExoPlayer) {
         }
     }
 }
-@Composable private fun CollectionRow(title:String,subtitle:String,detail:String,art:Uri?,click:()->Unit){ Row(Modifier.fillMaxWidth().clickable(onClick=click).padding(vertical=8.dp),verticalAlignment=Alignment.CenterVertically){Artwork(art,50);Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(title,color=White,fontWeight=FontWeight.SemiBold);Text(subtitle,color=Muted,fontSize=11.sp)};Text(detail,color=Muted,fontSize=10.sp)} }
+@Composable private fun CollectionRow(title:String,subtitle:String,detail:String,art:Uri?,click:()->Unit){ Row(Modifier.fillMaxWidth().animateContentSize(spring(dampingRatio=.86f, stiffness=420f)).clickable(onClick=click).padding(vertical=8.dp),verticalAlignment=Alignment.CenterVertically){Artwork(art,50);Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(title,color=White,fontWeight=FontWeight.SemiBold);Text(subtitle,color=Muted,fontSize=11.sp)};Text(detail,color=Muted,fontSize=10.sp)} }
 @Composable private fun Artwork(uri:Uri?,size:Int){ Box(Modifier.size(size.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF282139)),contentAlignment=Alignment.Center){ if(uri!=null) AsyncImage(uri,null,Modifier.fillMaxSize()) else Icon(Icons.Rounded.Album,null,tint=Lavender,modifier=Modifier.size((size/2).dp)) } }
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable private fun MiniPlayer(track:LocalTrack?,playing:Boolean,toggle:()->Unit,expand:()->Unit,openQueue:()->Unit,hazeState:HazeState,ambientPalette:Triple<Color,Color,Color>,activeAtmosphere:String,onAtmosphere:(String)->Unit){
@@ -634,12 +641,15 @@ private fun SynesthesiaApp(player: ExoPlayer) {
     close: () -> Unit,
     player: ExoPlayer,
     queue: List<LocalTrack>,
-    openQueue: () -> Unit,
+    palette: Triple<Color,Color,Color>,
     openEqualizer: () -> Unit
 ) {
     var progress by remember { mutableFloatStateOf(0f) }
     var shuffle by remember { mutableStateOf(player.shuffleModeEnabled) }
     var repeat by remember { mutableIntStateOf(player.repeatMode) }
+    var smartQueueOpen by remember { mutableStateOf(false) }
+    val accent = palette.first
+    val accentSecondary = palette.second
     LaunchedEffect(player) {
         while (true) {
             val duration = player.duration
@@ -670,7 +680,7 @@ private fun SynesthesiaApp(player: ExoPlayer) {
             val expandedHeight = (maxHeight - topInset - bottomInset - 28.dp).coerceAtLeast(400.dp)
             Column(
                 Modifier.align(Alignment.TopCenter).padding(top=topInset + 10.dp).fillMaxWidth().height(expandedHeight).padding(horizontal=12.dp).widthIn(max=440.dp)
-                    .shadow(26.dp,panelShape,ambientColor=Color(0xFF7655A8).copy(.18f),spotColor=Color.Black.copy(.42f))
+                    .shadow(26.dp,panelShape,ambientColor=accent.copy(.18f),spotColor=Color.Black.copy(.42f))
                     .clip(panelShape)
                     .background(Color(0xFF171522).copy(.72f))
                     .background(Brush.linearGradient(listOf(Color.White.copy(.18f),Color.White.copy(.045f),Color(0xFF090914).copy(.34f))))
@@ -685,11 +695,11 @@ private fun SynesthesiaApp(player: ExoPlayer) {
                         Icon(Icons.Rounded.KeyboardArrowDown,"Close player",tint=White,modifier=Modifier.size(25.dp))
                     }
                     Column(horizontalAlignment=Alignment.CenterHorizontally) {
-                        Text("NOW PLAYING",color=Color(0xFFFF3D8B),letterSpacing=2.1.sp,fontSize=10.sp,fontWeight=FontWeight.Bold)
+                        Text("NOW PLAYING",color=accent,letterSpacing=2.1.sp,fontSize=10.sp,fontWeight=FontWeight.Bold)
                         Text("YOUR SOUND. YOUR WORLD.",color=Muted.copy(.9f),fontSize=9.sp,letterSpacing=1.35.sp)
                     }
-                    Box(Modifier.size(36.dp).clip(CircleShape).background(Color.White.copy(.10f)).border(1.dp,Color.White.copy(.16f),CircleShape).clickable(onClick=openQueue),contentAlignment=Alignment.Center) {
-                        Icon(Icons.Rounded.QueueMusic,"Queue",tint=White,modifier=Modifier.size(21.dp))
+                    Box(Modifier.size(36.dp).clip(CircleShape).background(Color.White.copy(.10f)).border(1.dp,Color.White.copy(.16f),CircleShape).clickable { smartQueueOpen = !smartQueueOpen },contentAlignment=Alignment.Center) {
+                        Icon(Icons.Rounded.QueueMusic,"Queue",tint=accent,modifier=Modifier.size(21.dp))
                     }
                 }
                 // Flexible artwork stage follows the website's square album-art stage.
@@ -697,11 +707,31 @@ private fun SynesthesiaApp(player: ExoPlayer) {
                     BoxWithConstraints(Modifier.fillMaxWidth(),contentAlignment=Alignment.Center) {
                         val artSide = minOf(maxWidth, maxHeight)
                         Box(Modifier.size(artSide).clip(RoundedCornerShape(34.dp)).background(Color(0xFF292039))
-                            .shadow(24.dp,RoundedCornerShape(34.dp),ambientColor=Color(0xFFFF3D8B).copy(.16f))) {
+                            .shadow(24.dp,RoundedCornerShape(34.dp),ambientColor=accent.copy(.16f))) {
                             if(track.artwork!=null) AsyncImage(model=track.artwork,contentDescription="Album artwork",contentScale=ContentScale.Crop,modifier=Modifier.fillMaxSize())
                             else Icon(Icons.Rounded.Album,null,tint=Lavender,modifier=Modifier.align(Alignment.Center).size(92.dp))
                             Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color.White.copy(.18f),Color.Transparent,Color.Black.copy(.12f)))))
                             Box(Modifier.fillMaxSize().border(1.dp,Color.White.copy(.20f),RoundedCornerShape(34.dp)))
+                        }
+                        AnimatedVisibility(visible=smartQueueOpen, modifier=Modifier.align(Alignment.Center), enter=fadeIn(tween(180))+androidx.compose.animation.scaleIn(tween(220)), exit=fadeOut(tween(130))) {
+                            Column(Modifier.fillMaxSize().clip(RoundedCornerShape(34.dp)).background(Color(0xE910101B)).border(1.dp,Color.White.copy(.20f),RoundedCornerShape(34.dp)).padding(14.dp)) {
+                                Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween) {
+                                    Column { Text("SMART QUEUE",color=accent,fontSize=10.sp,letterSpacing=2.sp,fontWeight=FontWeight.Bold); Text("Playing next",color=White,fontSize=18.sp,fontWeight=FontWeight.Bold) }
+                                    IconButton(onClick={smartQueueOpen=false}) { Icon(Icons.Rounded.Close,"Close queue",tint=White) }
+                                }
+                                LazyColumn(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(5.dp)) {
+                                    items((0 until player.mediaItemCount).toList()) { index ->
+                                        val mediaId=player.getMediaItemAt(index).mediaId.toLongOrNull()
+                                        val item=queue.firstOrNull { it.id==mediaId }
+                                        if(item!=null) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(if(index==player.currentMediaItemIndex) accent.copy(.20f) else Color.White.copy(.055f)).clickable { player.seekTo(index,0L); player.play(); smartQueueOpen=false }.padding(7.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(9.dp)) {
+                                            Artwork(item.artwork,38)
+                                            Column(Modifier.weight(1f)) { Text(item.title,color=if(index==player.currentMediaItemIndex)accent else White,fontSize=12.sp,fontWeight=FontWeight.SemiBold,maxLines=1,overflow=TextOverflow.Ellipsis); Text(item.artist,color=Muted,fontSize=10.sp,maxLines=1,overflow=TextOverflow.Ellipsis) }
+                                            if(index==player.currentMediaItemIndex) Icon(Icons.Rounded.Equalizer,null,tint=accent,modifier=Modifier.size(17.dp))
+                                        }
+                                    }
+                                }
+                                Text("Tap a track to play",color=Muted,fontSize=10.sp,modifier=Modifier.align(Alignment.CenterHorizontally).padding(top=5.dp))
+                            }
                         }
                     }
                 }
@@ -710,33 +740,37 @@ private fun SynesthesiaApp(player: ExoPlayer) {
                     Text(track.title,color=White,fontSize=21.sp,fontWeight=FontWeight.Bold,maxLines=1,overflow=TextOverflow.Ellipsis)
                     Text(track.artist,color=Muted,fontSize=14.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
                     Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(6.dp)) {
-                        Icon(Icons.Rounded.Album,null,tint=Color(0xFFFF3D8B).copy(.85f),modifier=Modifier.size(12.dp))
-                        Text(track.album,color=Color(0xFFFF3D8B).copy(.85f),fontSize=11.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
+                        Icon(Icons.Rounded.Album,null,tint=accent.copy(.85f),modifier=Modifier.size(12.dp))
+                        Text(track.album,color=accent.copy(.85f),fontSize=11.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
                     }
                 }
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.End) {
-                    TextButton(onClick=openEqualizer) { Icon(Icons.Rounded.Equalizer,null,tint=Color(0xFFFF3D8B),modifier=Modifier.size(17.dp)); Spacer(Modifier.width(6.dp)); Text("EQUALIZER",color=Color(0xFFFF3D8B),fontSize=10.sp,letterSpacing=1.3.sp) }
+                    TextButton(onClick=openEqualizer) { Icon(Icons.Rounded.Equalizer,null,tint=accent,modifier=Modifier.size(17.dp)); Spacer(Modifier.width(6.dp)); Text("EQUALIZER",color=accent,fontSize=10.sp,letterSpacing=1.3.sp) }
                 }
                 Slider(value=progress,onValueChange={progress=it;if(player.duration>0)player.seekTo((player.duration*it).toLong())},
-                    colors=SliderDefaults.colors(thumbColor=Color(0xFFFF3D8B),activeTrackColor=Color(0xFFFF3D8B),inactiveTrackColor=Color.White.copy(.16f)),
+                    colors=SliderDefaults.colors(thumbColor=accent,activeTrackColor=accent,inactiveTrackColor=Color.White.copy(.16f)),
                     modifier=Modifier.fillMaxWidth().height(25.dp))
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
                     Text(formatDuration(player.currentPosition.coerceAtLeast(0)),color=Muted,fontSize=10.sp)
                     Text(if(player.duration>0) "-${formatDuration((player.duration-player.currentPosition).coerceAtLeast(0))}" else "0:00",color=Muted,fontSize=10.sp)
                 }
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically) {
-                    IconButton(onClick={shuffle=!shuffle;player.shuffleModeEnabled=shuffle},modifier=Modifier.size(42.dp)) { Icon(Icons.Rounded.Shuffle,"Shuffle",tint=if(shuffle)Color(0xFFFF3D8B)else Muted,modifier=Modifier.size(21.dp)) }
+                    IconButton(onClick={shuffle=!shuffle;player.shuffleModeEnabled=shuffle},modifier=Modifier.size(42.dp)) { Icon(Icons.Rounded.Shuffle,"Shuffle",tint=if(shuffle)accent else Muted,modifier=Modifier.size(21.dp)) }
                     IconButton(onClick=previous,modifier=Modifier.size(42.dp)) { Icon(Icons.Rounded.SkipPrevious,"Previous",tint=White,modifier=Modifier.size(28.dp)) }
-                    FilledIconButton(toggle,colors=IconButtonDefaults.filledIconButtonColors(containerColor=Color(0xFFFF3D8B),contentColor=Color(0xFF05050D)),modifier=Modifier.size(70.dp)) {
-                        Icon(if(playing)Icons.Rounded.Pause else Icons.Rounded.PlayArrow,"Play or pause",modifier=Modifier.size(36.dp))
+                    val playRotation by androidx.compose.animation.core.animateFloatAsState(if(playing) 0f else -90f, animationSpec=spring(dampingRatio=.62f,stiffness=420f), label="play-pause-rotation")
+                    val playScale by animateFloatAsState(if(playing) 1f else .94f, tween(220), label="play-pause-scale")
+                    FilledIconButton(toggle,colors=IconButtonDefaults.filledIconButtonColors(containerColor=accent,contentColor=Color(0xFF05050D)),modifier=Modifier.size(70.dp).graphicsLayer { scaleX=playScale; scaleY=playScale }) {
+                        AnimatedContent(playing, transitionSpec={ fadeIn(tween(120))+androidx.compose.animation.scaleIn(tween(180)) togetherWith fadeOut(tween(90))+androidx.compose.animation.scaleOut(tween(120)) }, label="play-pause-icon") { isPlaying ->
+                            Icon(if(isPlaying)Icons.Rounded.Pause else Icons.Rounded.PlayArrow,"Play or pause",modifier=Modifier.size(36.dp).graphicsLayer { rotationZ=playRotation })
+                        }
                     }
                     IconButton(onClick=next,modifier=Modifier.size(42.dp)) { Icon(Icons.Rounded.SkipNext,"Next",tint=White,modifier=Modifier.size(28.dp)) }
-                    IconButton(onClick={repeat=(repeat+1)%3;player.repeatMode=repeat},modifier=Modifier.size(42.dp)) { Icon(Icons.Rounded.Repeat,"Repeat",tint=if(repeat!=Player.REPEAT_MODE_OFF)Color(0xFFFF3D8B)else Muted,modifier=Modifier.size(21.dp)) }
+                    IconButton(onClick={repeat=(repeat+1)%3;player.repeatMode=repeat},modifier=Modifier.size(42.dp)) { Icon(Icons.Rounded.Repeat,"Repeat",tint=if(repeat!=Player.REPEAT_MODE_OFF)accent else Muted,modifier=Modifier.size(21.dp)) }
                 }
                 // Website's compact Up Next pill: a real preview of the next queued song.
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(999.dp))
                     .background(Color.White.copy(.055f)).border(1.dp,Color.White.copy(.12f),RoundedCornerShape(999.dp))
-                    .clickable(onClick=openQueue)
+                    .clickable { smartQueueOpen = !smartQueueOpen }
                     .padding(horizontal=9.dp,vertical=7.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
                     if(nextTrack?.artwork!=null) Artwork(nextTrack.artwork,38) else Box(Modifier.size(38.dp).clip(CircleShape).background(Color.White.copy(.08f)),contentAlignment=Alignment.Center){Icon(Icons.Rounded.Album,null,tint=Muted)}
                     Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(1.dp)) {
@@ -751,77 +785,103 @@ private fun SynesthesiaApp(player: ExoPlayer) {
     }
 }
 
-@Composable private fun SettingsScreen(tracks: List<LocalTrack>, close: () -> Unit, rescan: () -> Unit) {
+@Composable private fun SettingsScreen(tracks: List<LocalTrack>, lightTheme: Boolean, setLightTheme: (Boolean) -> Unit, close: () -> Unit, rescan: () -> Unit) {
     var section by remember { mutableStateOf("Look & Feel") }
     var reduceMotion by remember { mutableStateOf(false) }
     var gapless by remember { mutableStateOf(true) }
     var loudness by remember { mutableStateOf(false) }
     val sections = listOf("Look & Feel", "Interface", "Audio Settings", "Files & Folders", "Advanced")
-    Box(Modifier.fillMaxSize().background(Color(0xF20A0A14)).padding(horizontal=18.dp, vertical=12.dp)) {
-        Column(Modifier.fillMaxSize()) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment=Alignment.CenterVertically, horizontalArrangement=Arrangement.SpaceBetween) {
-                Column { Text("SETTINGS", color=Color(0xFFFF3D8B), fontSize=11.sp, letterSpacing=2.4.sp, fontWeight=FontWeight.Bold); Text("Make it yours", color=White, fontSize=25.sp, fontWeight=FontWeight.Bold) }
+    val scrollState = androidx.compose.foundation.rememberScrollState()
+    val sectionIcons = listOf(Icons.Rounded.Palette, Icons.Rounded.Tune, Icons.Rounded.GraphicEq, Icons.Rounded.Folder, Icons.Rounded.Build)
+    Box(Modifier.fillMaxSize().background(if(lightTheme) Color(0xF2F2F0F6) else Color(0xF20A0A14)).clickable(interactionSource=remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication=null) {}) {
+        Column(Modifier.fillMaxSize().verticalScroll(scrollState).padding(horizontal=18.dp, vertical=12.dp)) {
+            Row(Modifier.fillMaxWidth().padding(top=18.dp, bottom=16.dp), verticalAlignment=Alignment.CenterVertically, horizontalArrangement=Arrangement.SpaceBetween) {
+                Column(Modifier.padding(top=8.dp)) {
+                    Text("SETTINGS", color=Color(0xFFFF3D8B), fontSize=10.sp, letterSpacing=2.4.sp, fontWeight=FontWeight.Bold)
+                    Text("Make it yours", color=White, fontSize=24.sp, fontWeight=FontWeight.Bold)
+                }
                 IconButton(onClick=close) { Icon(Icons.Rounded.Close, "Close settings", tint=White) }
             }
-            Spacer(Modifier.height(14.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.spacedBy(6.dp)) {
-                sections.forEach { name -> FilterChip(selected=section==name,onClick={section=name},label={Text(name, fontSize=10.sp)}, colors=FilterChipDefaults.filterChipColors(selectedContainerColor=Color(0xFF7655A8).copy(.45f),labelColor=Muted,selectedLabelColor=White)) }
-            }
-            Spacer(Modifier.height(12.dp))
-            when(section) {
-                "Look & Feel" -> Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
-                    SettingsCard("Atmosphere", "Choose how the album-reactive background behaves") {
-                        Text("Album artwork colours are used automatically. Use the four atmosphere dots on the mini-player to switch palettes.", color=Muted, fontSize=12.sp)
-                    }
-                    SettingsCard("Appearance", "SYNESTHESIA liquid glass") { Text("Dark glass theme is active", color=White, fontSize=13.sp) }
-                }
-                "Interface" -> Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
-                    SettingsCard("Motion", "Animation preferences") { SettingsSwitch("Reduce motion", reduceMotion) { reduceMotion=it } }
-                    SettingsCard("Library display", "Organise your collection") { Text("Songs, albums, artists and genres stay in Library. Folder management lives here in Settings.", color=Muted, fontSize=12.sp) }
-                }
-                "Audio Settings" -> Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
-                    SettingsCard("Playback", "Audio behaviour") {
-                        SettingsSwitch("Gapless playback", gapless) { gapless=it }
-                        SettingsSwitch("Loudness normalisation", loudness) { loudness=it }
-                        Text("Open the expanded player to access the system audio equalizer.", color=Muted, fontSize=11.sp)
-                    }
-                }
-                "Files & Folders" -> Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
-                    SettingsCard("Music folders", "${tracks.size} indexed audio files") {
-                        tracks.groupBy { it.path.substringBeforeLast('/', "/") }.toList().sortedBy { it.first }.forEach { (path, songs) ->
-                            Row(Modifier.fillMaxWidth().padding(vertical=6.dp), verticalAlignment=Alignment.CenterVertically) {
-                                Icon(Icons.Rounded.Folder, null, tint=Color(0xFFFF3D8B), modifier=Modifier.size(19.dp)); Spacer(Modifier.width(9.dp))
-                                Column(Modifier.weight(1f)) { Text(path.substringAfterLast('/').ifBlank { "Music" }, color=White, fontSize=12.sp); Text(path, color=Muted, fontSize=9.sp, maxLines=1, overflow=TextOverflow.Ellipsis) }
-                                Text("${songs.size}", color=Muted, fontSize=11.sp)
+            // Vertical category navigation: compact category titles, with their controls shown below.
+            Column(verticalArrangement=Arrangement.spacedBy(7.dp)) {
+                sections.forEachIndexed { index, name ->
+                    val active = section == name
+                    Column(Modifier.fillMaxWidth().animateContentSize(spring(dampingRatio=.82f, stiffness=420f)).clip(RoundedCornerShape(20.dp))
+                        .background(if(active) Color(0xFF7655A8).copy(.19f) else Color.White.copy(.035f))
+                        .border(1.dp, if(active) Color(0xFFB99AEF).copy(.30f) else Color.White.copy(.075f), RoundedCornerShape(20.dp))) {
+                        Row(Modifier.fillMaxWidth().clickable { section = name }.padding(horizontal=14.dp, vertical=12.dp), verticalAlignment=Alignment.CenterVertically) {
+                            Icon(sectionIcons[index], null, tint=if(active) Color(0xFFD4BCFF) else Muted, modifier=Modifier.size(19.dp))
+                            Spacer(Modifier.width(11.dp))
+                            Text(name, color=if(active) White else Muted, fontSize=11.sp, fontWeight=FontWeight.SemiBold, modifier=Modifier.weight(1f))
+                            Icon(if(active) Icons.Rounded.ExpandLess else Icons.Rounded.ChevronRight, null, tint=if(active) White else Muted, modifier=Modifier.size(18.dp))
+                        }
+                        androidx.compose.animation.AnimatedVisibility(visible=active, enter=fadeIn(tween(180))+slideInVertically(spring(dampingRatio=.86f,stiffness=340f)){it/8}, exit=fadeOut(tween(120))+slideOutVertically(tween(140)){it/10}) {
+                            Column(Modifier.fillMaxWidth().padding(start=12.dp, end=12.dp, bottom=12.dp), verticalArrangement=Arrangement.spacedBy(10.dp)) {
+                                when(name) {
+                                    "Look & Feel" -> {
+                                        SettingsCard("Atmosphere", "Album-reactive colours") {
+                                            Text("Album artwork colours are used automatically. Use the atmosphere controls on the mini-player to switch palettes.", color=Muted, fontSize=13.sp)
+                                        }
+                                        SettingsCard("Appearance", "SYNESTHESIA liquid glass") {
+                                            Text("Choose your interface theme", color=Muted, fontSize=13.sp)
+                                            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color.White.copy(.06f)).padding(4.dp), horizontalArrangement=Arrangement.spacedBy(5.dp)) {
+                                                listOf(false to "Dark", true to "Light").forEach { (light,label) ->
+                                                    Box(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(if(lightTheme==light) Color(0xFF7655A8).copy(.55f) else Color.Transparent).clickable { setLightTheme(light) }.padding(vertical=13.dp), contentAlignment=Alignment.Center) {
+                                                        Text(label, color=if(lightTheme==light) White else Muted, fontSize=13.sp, fontWeight=FontWeight.SemiBold)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    "Interface" -> {
+                                        SettingsCard("Motion", "Application-wide animation") { SettingsSwitch("Reduce motion", reduceMotion) { reduceMotion=it } }
+                                        SettingsCard("Library display", "Organise your collection") { Text("Songs, albums, artists and genres stay in Library. Folder management lives here in Settings.", color=Muted, fontSize=13.sp) }
+                                    }
+                                    "Audio Settings" -> SettingsCard("Playback", "Audio behaviour") {
+                                        SettingsSwitch("Gapless playback", gapless) { gapless=it }
+                                        SettingsSwitch("Loudness normalisation", loudness) { loudness=it }
+                                        Text("Open the expanded player to access the system audio equalizer.", color=Muted, fontSize=12.sp)
+                                    }
+                                    "Files & Folders" -> {
+                                        SettingsCard("Music folders", "${tracks.size} indexed audio files") {
+                                            tracks.groupBy { it.path.substringBeforeLast('/', "/") }.toList().sortedBy { it.first }.forEach { (path, songs) ->
+                                                Row(Modifier.fillMaxWidth().padding(vertical=7.dp), verticalAlignment=Alignment.CenterVertically) {
+                                                    Icon(Icons.Rounded.Folder, null, tint=Color(0xFFFF3D8B), modifier=Modifier.size(20.dp)); Spacer(Modifier.width(10.dp))
+                                                    Column(Modifier.weight(1f)) { Text(path.substringAfterLast('/').ifBlank { "Music" }, color=White, fontSize=14.sp); Text(path, color=Muted, fontSize=10.sp, maxLines=1, overflow=TextOverflow.Ellipsis) }
+                                                    Text("${songs.size}", color=Muted, fontSize=12.sp)
+                                                }
+                                            }
+                                            OutlinedButton(onClick=rescan, modifier=Modifier.fillMaxWidth()) { Icon(Icons.Rounded.Refresh, null); Spacer(Modifier.width(6.dp)); Text("Rescan device") }
+                                        }
+                                        SettingsCard("Supported files", "Local music library") { Text("Audio files indexed by Android MediaStore are included. Folder exclusions and custom folder grants can be added in a later storage pass.", color=Muted, fontSize=12.sp) }
+                                    }
+                                    else -> SettingsCard("Advanced features", "Playback and library diagnostics") {
+                                        Text("Indexed tracks: ${tracks.size}", color=White, fontSize=14.sp)
+                                        Text("Playback engine: AndroidX Media3 / ExoPlayer", color=Muted, fontSize=12.sp)
+                                        Text("Audio effects are provided by the device when supported.", color=Muted, fontSize=12.sp)
+                                    }
+                                }
                             }
                         }
-                        OutlinedButton(onClick=rescan, modifier=Modifier.fillMaxWidth()) { Icon(Icons.Rounded.Refresh, null); Spacer(Modifier.width(6.dp)); Text("Rescan device") }
-                    }
-                    SettingsCard("Supported files", "Local music library") { Text("Audio files indexed by Android MediaStore are included. Folder exclusions and custom folder grants can be added in a later storage pass.", color=Muted, fontSize=11.sp) }
-                }
-                else -> Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
-                    SettingsCard("Advanced features", "Playback and library diagnostics") {
-                        Text("Indexed tracks: ${tracks.size}", color=White, fontSize=12.sp)
-                        Text("Playback engine: AndroidX Media3 / ExoPlayer", color=Muted, fontSize=11.sp)
-                        Text("Audio effects are provided by the device when supported.", color=Muted, fontSize=11.sp)
                     }
                 }
             }
+            Spacer(Modifier.height(28.dp))
         }
     }
 }
 
 @Composable private fun SettingsCard(title: String, subtitle: String, content: @Composable ColumnScope.() -> Unit) {
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Color.White.copy(.065f)).border(1.dp,Color.White.copy(.11f),RoundedCornerShape(22.dp)).padding(15.dp), verticalArrangement=Arrangement.spacedBy(8.dp)) {
-        Text(title, color=White, fontSize=15.sp, fontWeight=FontWeight.SemiBold)
-        Text(subtitle, color=Muted, fontSize=10.sp)
+    Column(Modifier.fillMaxWidth().animateContentSize(spring(dampingRatio=.84f, stiffness=380f)).clip(RoundedCornerShape(22.dp)).background(Color.White.copy(.065f)).border(1.dp,Color.White.copy(.11f),RoundedCornerShape(22.dp)).padding(16.dp), verticalArrangement=Arrangement.spacedBy(9.dp)) {
+        Text(title, color=White, fontSize=16.sp, fontWeight=FontWeight.SemiBold)
+        Text(subtitle, color=Muted, fontSize=11.sp)
         content()
     }
 }
 
 @Composable private fun SettingsSwitch(label: String, checked: Boolean, change: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.SpaceBetween, verticalAlignment=Alignment.CenterVertically) {
-        Text(label, color=White, fontSize=12.sp)
+    Row(Modifier.fillMaxWidth().animateContentSize(spring(dampingRatio=.86f, stiffness=420f)).padding(vertical=3.dp), horizontalArrangement=Arrangement.SpaceBetween, verticalAlignment=Alignment.CenterVertically) {
+        Text(label, color=White, fontSize=13.sp)
         Switch(checked=checked,onCheckedChange=change)
     }
 }
