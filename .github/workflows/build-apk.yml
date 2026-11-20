@@ -16,19 +16,39 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Extract updated project
+    - name: Clean and extract updated project
       run: |
         if [ -f "SYNESTHESIA-Website-Reference-Native-Android.zip" ]; then
+          echo "Preparing clean project replacement..."
+
+          # Remove old project files while preserving Git and GitHub configuration.
+          find . -mindepth 1 -maxdepth 1 \
+            ! -name ".git" \
+            ! -name ".github" \
+            ! -name "SYNESTHESIA-Website-Reference-Native-Android.zip" \
+            -exec rm -rf {} +
+
+          # Extract the new Android project.
           mkdir -p /tmp/synesthesia-update
-          unzip -q SYNESTHESIA-Website-Reference-Native-Android.zip -d /tmp/synesthesia-update
-          cp -a /tmp/synesthesia-update/synesthesia-android-main/. .
-          git checkout -- .github/workflows/build-apk.yml
+          unzip -q SYNESTHESIA-Website-Reference-Native-Android.zip \
+            -d /tmp/synesthesia-update
+
+          # Copy new files without replacing GitHub workflows.
+          rsync -a --exclude=".github/" \
+            /tmp/synesthesia-update/synesthesia-android-main/ ./
+
+          # Remove uploaded archive.
           rm SYNESTHESIA-Website-Reference-Native-Android.zip
+
+          # Commit the replacement.
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           git add -A
-          git commit -m "Apply updated SYNESTHESIA Android project [skip ci]"
+          git commit -m "Replace SYNESTHESIA Android project with clean update [skip ci]"
           git push
+        else
+          echo "No project ZIP found. Building existing project."
         fi
 
     - name: Set up JDK
