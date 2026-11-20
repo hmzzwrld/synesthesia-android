@@ -62,6 +62,7 @@ import com.synesthesia.mobile.util.ColorExtractor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.compose.foundation.border
 
 private val Ink = Color(0xFF0B0B13)
 private val Violet = Color(0xFF7655A8)
