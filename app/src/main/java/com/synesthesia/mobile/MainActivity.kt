@@ -56,6 +56,10 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import coil.compose.AsyncImage
+import dev.chrisbanes.haze.HazeInputScale
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.haze
+import dev.chrisbanes.haze.hazeChild
 import androidx.compose.ui.res.painterResource
 import com.synesthesia.mobile.ui.theme.SynesthesiaAtmosphere
 import com.synesthesia.mobile.ui.theme.glassSurface
@@ -172,9 +176,12 @@ private fun SynesthesiaApp(player: ExoPlayer) {
             Color(0xFFFF3D8B), Color(0xFFFF9F40), Color(0xFFA855F7)
         )
     }
+    val glassHaze = remember { HazeState() }
     MaterialTheme(colorScheme = darkColorScheme(primary=ambientPalette.first, background=Ink, surface=Color(0xFF12121E), onSurface=White)) {
         SynesthesiaAtmosphere(ambA=ambientPalette.first, ambB=ambientPalette.second, ambC=ambientPalette.third) {
             Box(Modifier.fillMaxSize()) {
+                // Capture the page behind floating controls so their surfaces can use real backdrop blur.
+                Box(Modifier.fillMaxSize().haze(state = glassHaze)) {
                 // Website reference: fixed background image, adaptive colour wash, ambient glow and fine mesh.
                 Image(
                     painter = painterResource(id = R.drawable.synesthesia_background),
@@ -229,6 +236,7 @@ private fun SynesthesiaApp(player: ExoPlayer) {
                         }
                     }
                 }
+                } // End captured background/content layer.
                 // Website layout: independent floating island and bottom navigation, over the scroll layer.
                 Column(
                     modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding().padding(horizontal=14.dp).padding(bottom=8.dp),
@@ -236,9 +244,9 @@ private fun SynesthesiaApp(player: ExoPlayer) {
                     verticalArrangement = Arrangement.spacedBy(9.dp)
                 ) {
                     AnimatedVisibility(selected!=null, enter=fadeIn()+slideInVertically { it/3 }, exit=fadeOut()+slideOutVertically { it/3 }) {
-                        MiniPlayer(selected, playing, { if(player.isPlaying) player.pause() else player.play() }, {expandedPlayer=true}, { liquidQueueOpen=true })
+                        MiniPlayer(selected, playing, { if(player.isPlaying) player.pause() else player.play() }, {expandedPlayer=true}, { liquidQueueOpen=true }, glassHaze)
                     }
-                    Navigation(tab,{tab=it})
+                    Navigation(tab,{tab=it}, glassHaze)
                 }
                 if(expandedPlayer && selected!=null) PlayerSheet(selected!!, playing, { if(player.isPlaying) player.pause() else player.play() }, {player.seekToPreviousMediaItem()}, {player.seekToNextMediaItem()}, {expandedPlayer=false}, player, tracks)
                 AnimatedVisibility(visible=liquidQueueOpen,enter=fadeIn(tween(160))+slideInVertically(spring(dampingRatio=.78f,stiffness=360f)){it/5},exit=fadeOut(tween(130))+slideOutVertically(tween(180)){it/3}) {
@@ -298,7 +306,7 @@ private fun SynesthesiaApp(player: ExoPlayer) {
 @Composable private fun CollectionRow(title:String,subtitle:String,detail:String,art:Uri?,click:()->Unit){ Row(Modifier.fillMaxWidth().clickable(onClick=click).padding(vertical=8.dp),verticalAlignment=Alignment.CenterVertically){Artwork(art,50);Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(title,color=White,fontWeight=FontWeight.SemiBold);Text(subtitle,color=Muted,fontSize=11.sp)};Text(detail,color=Muted,fontSize=10.sp)} }
 @Composable private fun Artwork(uri:Uri?,size:Int){ Box(Modifier.size(size.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF282139)),contentAlignment=Alignment.Center){ if(uri!=null) AsyncImage(uri,null,Modifier.fillMaxSize()) else Icon(Icons.Rounded.Album,null,tint=Lavender,modifier=Modifier.size((size/2).dp)) } }
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
-@Composable private fun MiniPlayer(track:LocalTrack?,playing:Boolean,toggle:()->Unit,expand:()->Unit,openQueue:()->Unit){
+@Composable private fun MiniPlayer(track:LocalTrack?,playing:Boolean,toggle:()->Unit,expand:()->Unit,openQueue:()->Unit,hazeState:HazeState){
     if(track==null)return
     val podShape = RoundedCornerShape(999.dp)
     Row(
@@ -306,10 +314,18 @@ private fun SynesthesiaApp(player: ExoPlayer) {
             .widthIn(max=390.dp)
             .wrapContentWidth()
             .animateContentSize(spring(dampingRatio=.72f, stiffness=420f))
+            // Website --liquid-blur: blur(28px) saturate(170%). Downsampled capture keeps it mobile-friendly.
+            .hazeChild(state = hazeState) {
+                blurRadius = 28.dp
+                backgroundColor = Color.Transparent
+                noiseFactor = 0.025f
+                inputScale = HazeInputScale.Fixed(0.66f)
+            }
             .shadow(20.dp, podShape, ambientColor=Color.Black.copy(.42f), spotColor=Color.Black.copy(.52f))
             .clip(podShape)
-            // Website --liquid-fill: bright upper edge, clear middle, deep tinted lower glass.
-            .background(Brush.linearGradient(listOf(Color.White.copy(.15f),Color.White.copy(.045f),Color(0xFF141222).copy(.52f))))
+            // Website background stack: rgba(14,14,24,.42) base + --liquid-fill gradient.
+            .background(Color(0xFF0E0E18).copy(.42f))
+            .background(Brush.linearGradient(listOf(Color.White.copy(.14f),Color.White.copy(.04f),Color(0xFF141222).copy(.38f))))
             .background(Brush.radialGradient(listOf(Color(0xFFFF3D8B).copy(.15f),Color.Transparent),radius=430f))
             .background(Brush.radialGradient(listOf(Color.White.copy(.23f),Color.Transparent),radius=250f,center=androidx.compose.ui.geometry.Offset(100f,-35f)))
             .border(1.dp,Brush.verticalGradient(listOf(Color.White.copy(.42f),Color.White.copy(.17f),Color.White.copy(.07f))),podShape)
@@ -539,13 +555,20 @@ private fun formatDuration(ms: Long): String {
 }
 
 @Composable private fun ArtworkLarge(uri:Uri?){ Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(24.dp)).background(Color(0xFF292039)),contentAlignment=Alignment.Center){if(uri!=null)AsyncImage(uri,null,Modifier.fillMaxSize())else Icon(Icons.Rounded.Album,null,tint=Lavender,modifier=Modifier.size(100.dp))} }
-@Composable private fun Navigation(tab:Tab,select:(Tab)->Unit){
+@Composable private fun Navigation(tab:Tab,select:(Tab)->Unit,hazeState:HazeState){
     val index=Tab.values().indexOf(tab)
     BoxWithConstraints(
         Modifier.widthIn(max=330.dp).fillMaxWidth().height(72.dp)
+            // Website nav uses a 10px blur and a near-solid rgba(20,20,29,.93) base.
+            .hazeChild(state = hazeState) {
+                blurRadius = 10.dp
+                backgroundColor = Color.Transparent
+                noiseFactor = 0f
+                inputScale = HazeInputScale.Fixed(0.66f)
+            }
             .shadow(13.dp,RoundedCornerShape(999.dp),ambientColor=Color.Black.copy(.30f),spotColor=Color.Black.copy(.36f))
             .clip(RoundedCornerShape(999.dp))
-            .background(Brush.linearGradient(listOf(Color.White.copy(.09f),Color.Transparent,Color(0xFF14141D).copy(.94f))))
+            .background(Brush.linearGradient(listOf(Color.White.copy(.08f),Color.Transparent,Color(0xFF14141D).copy(.93f))))
             .border(1.dp,Brush.verticalGradient(listOf(Color.White.copy(.24f),Color.White.copy(.09f))),RoundedCornerShape(999.dp))
             .padding(horizontal=6.dp,vertical=6.dp)
     ) {
