@@ -29,6 +29,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -39,6 +41,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.animateItemPlacement
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -378,7 +381,13 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                     }
                 }
                 } // End captured background/content layer.
-                if(expandedPlayer && selected!=null) PlayerSheet(selected!!, playing, { if(player.isPlaying) player.pause() else player.play() }, {player.seekToPreviousMediaItem()}, {player.seekToNextMediaItem()}, {expandedPlayer=false}, player, tracks, displayedPalette, lightTheme, { equalizerOpen=true })
+                AnimatedVisibility(
+                    visible=expandedPlayer && selected!=null,
+                    enter=fadeIn(tween(220))+scaleIn(initialScale=.965f, animationSpec=spring(dampingRatio=.86f,stiffness=300f)),
+                    exit=fadeOut(tween(170))+scaleOut(targetScale=.985f, animationSpec=tween(170))
+                ) {
+                    selected?.let { PlayerSheet(it, playing, { if(player.isPlaying) player.pause() else player.play() }, {player.seekToPreviousMediaItem()}, {player.seekToNextMediaItem()}, {expandedPlayer=false}, player, tracks, displayedPalette, lightTheme, { equalizerOpen=true }) }
+                }
                 // Queue is drawn first; the compact island is drawn above it, just like the website z-index stack.
                 AnimatedVisibility(visible=liquidQueueOpen,enter=fadeIn(tween(160))+slideInVertically(spring(dampingRatio=.78f,stiffness=360f)){it/5},exit=fadeOut(tween(130))+slideOutVertically(tween(180)){it/3}) {
                     LiquidQueueSheet(player, tracks, displayedPalette, glassHaze, { liquidQueueOpen=false })
@@ -398,8 +407,12 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                         Navigation(tab,{tab=it}, glassHaze)
                     }
                 }
-                if(settingsOpen) {
-                    BackHandler(enabled=true) { settingsOpen=false }
+                AnimatedVisibility(
+                    visible=settingsOpen,
+                    enter=fadeIn(tween(180))+slideInVertically(spring(dampingRatio=.86f,stiffness=320f)){it/18},
+                    exit=fadeOut(tween(140))+slideOutVertically(tween(160)){it/18}
+                ) {
+                    BackHandler(enabled=settingsOpen) { settingsOpen=false }
                     SettingsScreen(tracks, lightTheme, { lightTheme=it; appearancePrefs.edit().putBoolean("light_theme",it).apply() }, { GlassPrefs.enabled=it; appearancePrefs.edit().putBoolean("glass_enabled",it).apply() }, { settingsOpen=false }, { if(hasPermission) scope.launch { scan() } else launcher.launch(permission) })
                 }
                 if(equalizerOpen) EqualizerSheet(player.audioSessionId, { equalizerOpen=false })
@@ -668,18 +681,18 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                             val current=index==player.currentMediaItemIndex
                             val isDragging = draggingTrackId == item.id
                             Row(
-                                Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
+                                Modifier.fillMaxWidth().animateItemPlacement(animationSpec=spring(dampingRatio=.82f,stiffness=360f)).clip(RoundedCornerShape(18.dp))
                                     .graphicsLayer { scaleX=if(isDragging) 1.025f else 1f; scaleY=if(isDragging) 1.025f else 1f; shadowElevation=if(isDragging) 12.dp.toPx() else 0f }
                                     .glassOnly { background(if(current)
                                         Brush.horizontalGradient(listOf(accent.copy(.20f),Color.White.copy(.045f)))
                                     else Brush.horizontalGradient(listOf(Color.White.copy(.018f),Color.Transparent))) }
                                     .flatOnly { if(current) background(accent.copy(.24f)) else this }
-                                    .clickable { player.seekToDefaultPosition(index); player.play() }
+                                    .clickable { val liveIndex=(0 until player.mediaItemCount).firstOrNull { player.getMediaItemAt(it).mediaId==item.id.toString() }; if(liveIndex!=null) { player.seekToDefaultPosition(liveIndex); player.play() } }
                                     .padding(start=7.dp,end=12.dp,top=7.dp,bottom=7.dp),
                                 verticalAlignment=Alignment.CenterVertically
                             ) {
                                 Icon(Icons.Rounded.DragHandle,null,tint=if(isDragging) accent else Muted.copy(.85f),
-                                    modifier=Modifier.size(28.dp).pointerInput(item.id,queueRevision) {
+                                    modifier=Modifier.size(28.dp).pointerInput(item.id) {
                                         var dragDistance=0f
                                         detectDragGesturesAfterLongPress(
                                             onDragStart={draggingTrackId=item.id; dragDistance=0f},
@@ -688,18 +701,20 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                                             onDrag={change, amount ->
                                                 change.consume()
                                                 dragDistance += amount.y
-                                                val threshold=48f
-                                                if(kotlin.math.abs(dragDistance)>=threshold) {
+                                                val threshold=58f
+                                                // Consume every crossed row-height without ending the
+                                                // gesture: the dragged row remains lifted until release.
+                                                while(kotlin.math.abs(dragDistance)>=threshold) {
+                                                    val step=if(dragDistance>0) 1 else -1
                                                     val from=(0 until player.mediaItemCount).firstOrNull { player.getMediaItemAt(it).mediaId==item.id.toString() }
                                                     if(from!=null && from>player.currentMediaItemIndex) {
-                                                        val step=if(dragDistance>0) 1 else -1
                                                         val target=from+step
                                                         if(target>player.currentMediaItemIndex && target in 0 until player.mediaItemCount) {
                                                             player.moveMediaItem(from,target)
                                                             queueRevision++
-                                                        }
-                                                    }
-                                                    dragDistance=0f
+                                                        } else break
+                                                    } else break
+                                                    dragDistance -= step*threshold
                                                 }
                                             }
                                         )
@@ -755,7 +770,6 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
         }
     }
     val nextTrack = queue.getOrNull(player.currentMediaItemIndex + 1)
-    val panelShape = RoundedCornerShape(48.dp)
     val tetherPulse by androidx.compose.animation.core.rememberInfiniteTransition(label="player-pod-tether")
         .animateFloat(initialValue=.72f,targetValue=1f,animationSpec=androidx.compose.animation.core.infiniteRepeatable(
             animation=tween(1500),repeatMode=androidx.compose.animation.core.RepeatMode.Reverse
@@ -776,18 +790,16 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
             listOf(accent.copy(if(lightTheme) .16f else .24f), accentSecondary.copy(.10f), Color.Transparent), radius=1150f
         )))
         // The website hides the mini-player and navigation while expanded. Respect the status-bar/notch inset.
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Black.copy(.22f),Color.Transparent,Color.Transparent))).clickable(onClick=close))
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Black.copy(.12f),Color.Transparent,Color.Transparent))))
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
             val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-            val expandedHeight = (maxHeight - topInset - bottomInset - 28.dp).coerceAtLeast(400.dp)
+            val expandedHeight = (maxHeight - topInset - bottomInset).coerceAtLeast(400.dp)
             Column(
-                Modifier.align(Alignment.TopCenter).padding(top=topInset + 10.dp).fillMaxWidth().height(expandedHeight).padding(horizontal=12.dp).widthIn(max=440.dp)
-                    .glassOnly { shadow(26.dp,panelShape,ambientColor=accent.copy(.18f),spotColor=Color.Black.copy(.42f)) }
-                    .clip(panelShape)
+                Modifier.align(Alignment.TopCenter).fillMaxWidth().height(expandedHeight)
+                    .padding(top=topInset, bottom=bottomInset)
                     .background(playerSurface)
-                    .background(Brush.verticalGradient(listOf(Color.White.copy(if(lightTheme) .72f else .10f), Color.Transparent, Color.Black.copy(if(lightTheme) .035f else .12f))))
-                    .border(1.dp,Brush.verticalGradient(listOf(playerEdge,playerEdge.copy(alpha=.45f))),panelShape)
+                    .background(Brush.verticalGradient(listOf(Color.White.copy(if(lightTheme) .56f else .075f), Color.Transparent, Color.Black.copy(if(lightTheme) .025f else .10f))))
                     .clickable {}.padding(horizontal=22.dp, vertical=17.dp),
                 horizontalAlignment=Alignment.CenterHorizontally,
                 verticalArrangement=Arrangement.spacedBy(9.dp)
@@ -889,88 +901,91 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
 
 @Composable private fun SettingsScreen(tracks: List<LocalTrack>, lightTheme: Boolean, setLightTheme: (Boolean) -> Unit, setGlass: (Boolean) -> Unit, close: () -> Unit, rescan: () -> Unit) {
     var section by remember { mutableStateOf("Look & Feel") }
+    val settingsText = if(lightTheme) Color(0xFF201D2B) else White
+    val settingsMuted = if(lightTheme) Color(0xFF625D70) else Muted
+    val settingsSurface = if(lightTheme) Color(0xFFF4F1F8) else Color(0xFF0A0A14)
     var reduceMotion by remember { mutableStateOf(false) }
     var gapless by remember { mutableStateOf(true) }
     var loudness by remember { mutableStateOf(false) }
     val sections = listOf("Look & Feel", "Interface", "Audio Settings", "Files & Folders", "Advanced")
     val scrollState = androidx.compose.foundation.rememberScrollState()
     val sectionIcons = listOf(Icons.Rounded.Palette, Icons.Rounded.Tune, Icons.Rounded.GraphicEq, Icons.Rounded.Folder, Icons.Rounded.Build)
-    Box(Modifier.fillMaxSize().background(if(lightTheme) Color(0xF2F2F0F6) else Color(0xF20A0A14)).clickable(interactionSource=remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication=null) {}) {
+    Box(Modifier.fillMaxSize().background(if(lightTheme) Color(0xFFF4F1F8) else Color(0xF20A0A14)).clickable(interactionSource=remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication=null) {}) {
         Column(Modifier.fillMaxSize().verticalScroll(scrollState).padding(horizontal=18.dp, vertical=12.dp)) {
             Row(Modifier.fillMaxWidth().padding(top=18.dp, bottom=16.dp), verticalAlignment=Alignment.CenterVertically, horizontalArrangement=Arrangement.SpaceBetween) {
                 Column(Modifier.padding(top=8.dp)) {
                     Text("SETTINGS", color=Color(0xFFFF3D8B), fontSize=10.sp, letterSpacing=2.4.sp, fontWeight=FontWeight.Bold)
-                    Text("Make it yours", color=White, fontSize=24.sp, fontWeight=FontWeight.Bold)
+                    Text("Make it yours", color=settingsText, fontSize=24.sp, fontWeight=FontWeight.Bold)
                 }
-                IconButton(onClick=close) { Icon(Icons.Rounded.Close, "Close settings", tint=White) }
+                IconButton(onClick=close) { Icon(Icons.Rounded.Close, "Close settings", tint=settingsText) }
             }
             // Vertical category navigation: compact category titles, with their controls shown below.
             Column(verticalArrangement=Arrangement.spacedBy(7.dp)) {
                 sections.forEachIndexed { index, name ->
                     val active = section == name
                     Column(Modifier.fillMaxWidth().animateContentSize(spring(dampingRatio=.82f, stiffness=420f)).clip(RoundedCornerShape(20.dp))
-                        .background(if(active) Color(0xFF7655A8).copy(.19f) else Color.White.copy(.035f))
-                        .border(1.dp, if(active) Color(0xFFB99AEF).copy(.30f) else Color.White.copy(.075f), RoundedCornerShape(20.dp))) {
-                        Row(Modifier.fillMaxWidth().clickable { section = name }.padding(horizontal=14.dp, vertical=12.dp), verticalAlignment=Alignment.CenterVertically) {
-                            Icon(sectionIcons[index], null, tint=if(active) Color(0xFFD4BCFF) else Muted, modifier=Modifier.size(19.dp))
+                        .background(if(active) Color(0xFF7655A8).copy(.19f) else if(lightTheme) Color(0xFFE8E3EF) else Color.White.copy(.035f))
+                        .border(1.dp, if(active) Color(0xFFB99AEF).copy(.30f) else if(lightTheme) Color(0xFFD7D0E1) else Color.White.copy(.075f), RoundedCornerShape(20.dp))) {
+                        Row(Modifier.fillMaxWidth().clickable { section = if(section==name) "" else name }.padding(horizontal=14.dp, vertical=12.dp), verticalAlignment=Alignment.CenterVertically) {
+                            Icon(sectionIcons[index], null, tint=if(active) Color(0xFF7655A8) else settingsMuted, modifier=Modifier.size(19.dp))
                             Spacer(Modifier.width(11.dp))
-                            Text(name, color=if(active) White else Muted, fontSize=11.sp, fontWeight=FontWeight.SemiBold, modifier=Modifier.weight(1f))
-                            Icon(if(active) Icons.Rounded.ExpandLess else Icons.Rounded.ChevronRight, null, tint=if(active) White else Muted, modifier=Modifier.size(18.dp))
+                            Text(name, color=if(active) settingsText else settingsMuted, fontSize=11.sp, fontWeight=FontWeight.SemiBold, modifier=Modifier.weight(1f))
+                            Icon(if(active) Icons.Rounded.ExpandLess else Icons.Rounded.ChevronRight, null, tint=if(active) settingsText else settingsMuted, modifier=Modifier.size(18.dp))
                         }
                         androidx.compose.animation.AnimatedVisibility(visible=active, enter=fadeIn(tween(180))+slideInVertically(spring(dampingRatio=.86f,stiffness=340f)){it/8}, exit=fadeOut(tween(120))+slideOutVertically(tween(140)){it/10}) {
                             Column(Modifier.fillMaxWidth().padding(start=12.dp, end=12.dp, bottom=12.dp), verticalArrangement=Arrangement.spacedBy(10.dp)) {
                                 when(name) {
                                     "Look & Feel" -> {
-                                        SettingsCard("Atmosphere", "Album-reactive colours") {
-                                            Text("Album artwork colours are used automatically. Use the atmosphere controls on the mini-player to switch palettes.", color=Muted, fontSize=13.sp)
+                                        SettingsCard("Atmosphere", "Album-reactive colours", lightTheme) {
+                                            Text("Album artwork colours are used automatically. Use the atmosphere controls on the mini-player to switch palettes.", color=settingsMuted, fontSize=13.sp)
                                         }
-                                        SettingsCard("Appearance", "SYNESTHESIA liquid glass") {
-                                            Text("Choose your interface theme", color=Muted, fontSize=13.sp)
-                                            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color.White.copy(.06f)).padding(4.dp), horizontalArrangement=Arrangement.spacedBy(5.dp)) {
+                                        SettingsCard("Appearance", "SYNESTHESIA liquid glass", lightTheme) {
+                                            Text("Choose your interface theme", color=settingsMuted, fontSize=13.sp)
+                                            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(if(lightTheme) Color(0xFFE8E3EF) else Color.White.copy(.06f)).padding(4.dp), horizontalArrangement=Arrangement.spacedBy(5.dp)) {
                                                 listOf(false to "Dark", true to "Light").forEach { (light,label) ->
                                                     Box(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(if(lightTheme==light) Color(0xFF7655A8).copy(.55f) else Color.Transparent).clickable { setLightTheme(light) }.padding(vertical=13.dp), contentAlignment=Alignment.Center) {
-                                                        Text(label, color=if(lightTheme==light) White else Muted, fontSize=13.sp, fontWeight=FontWeight.SemiBold)
+                                                        Text(label, color=if(lightTheme==light) (if(lightTheme) Color(0xFF201D2B) else White) else settingsMuted, fontSize=13.sp, fontWeight=FontWeight.SemiBold)
                                                     }
                                                 }
                                             }
                                         }
-                                        SettingsCard("Glass", "Liquid glass effects") {
-                                            Text("Glass On is the optimal app experience. Glass Off makes the app fully flat and lighter on battery.", color=Muted, fontSize=13.sp)
-                                            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color.White.copy(.06f)).padding(4.dp), horizontalArrangement=Arrangement.spacedBy(5.dp)) {
+                                        SettingsCard("Glass", "Liquid glass effects", lightTheme) {
+                                            Text("Glass On is the optimal app experience. Glass Off makes the app fully flat and lighter on battery.", color=settingsMuted, fontSize=13.sp)
+                                            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(if(lightTheme) Color(0xFFE8E3EF) else Color.White.copy(.06f)).padding(4.dp), horizontalArrangement=Arrangement.spacedBy(5.dp)) {
                                                 listOf(true to "Glass On", false to "Glass Off").forEach { (on,label) ->
                                                     Box(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(if(GlassPrefs.enabled==on) Color(0xFF7655A8).copy(.55f) else Color.Transparent).clickable { setGlass(on) }.padding(vertical=13.dp), contentAlignment=Alignment.Center) {
-                                                        Text(label, color=if(GlassPrefs.enabled==on) White else Muted, fontSize=13.sp, fontWeight=FontWeight.SemiBold)
+                                                        Text(label, color=if(GlassPrefs.enabled==on) settingsText else settingsMuted, fontSize=13.sp, fontWeight=FontWeight.SemiBold)
                                                     }
                                                 }
                                             }
                                         }
                                     }
                                     "Interface" -> {
-                                        SettingsCard("Motion", "Application-wide animation") { SettingsSwitch("Reduce motion", reduceMotion) { reduceMotion=it } }
-                                        SettingsCard("Library display", "Organise your collection") { Text("Songs, albums, artists and genres stay in Library. Folder management lives here in Settings.", color=Muted, fontSize=13.sp) }
+                                        SettingsCard("Motion", "Application-wide animation", lightTheme) { SettingsSwitch("Reduce motion", reduceMotion, lightTheme) { reduceMotion=it } }
+                                        SettingsCard("Library display", "Organise your collection", lightTheme) { Text("Songs, albums, artists and genres stay in Library. Folder management lives here in Settings.", color=settingsMuted, fontSize=13.sp) }
                                     }
-                                    "Audio Settings" -> SettingsCard("Playback", "Audio behaviour") {
-                                        SettingsSwitch("Gapless playback", gapless) { gapless=it }
-                                        SettingsSwitch("Loudness normalisation", loudness) { loudness=it }
-                                        Text("Open the expanded player to access the system audio equalizer.", color=Muted, fontSize=12.sp)
+                                    "Audio Settings" -> SettingsCard("Playback", "Audio behaviour", lightTheme) {
+                                        SettingsSwitch("Gapless playback", gapless, lightTheme) { gapless=it }
+                                        SettingsSwitch("Loudness normalisation", loudness, lightTheme) { loudness=it }
+                                        Text("Open the expanded player to access the system audio equalizer.", color=settingsMuted, fontSize=12.sp)
                                     }
                                     "Files & Folders" -> {
-                                        SettingsCard("Music folders", "${tracks.size} indexed audio files") {
+                                        SettingsCard("Music folders", "${tracks.size} indexed audio files", lightTheme) {
                                             tracks.groupBy { it.path.substringBeforeLast('/', "/") }.toList().sortedBy { it.first }.forEach { (path, songs) ->
                                                 Row(Modifier.fillMaxWidth().padding(vertical=7.dp), verticalAlignment=Alignment.CenterVertically) {
                                                     Icon(Icons.Rounded.Folder, null, tint=Color(0xFFFF3D8B), modifier=Modifier.size(20.dp)); Spacer(Modifier.width(10.dp))
-                                                    Column(Modifier.weight(1f)) { Text(path.substringAfterLast('/').ifBlank { "Music" }, color=White, fontSize=14.sp); Text(path, color=Muted, fontSize=10.sp, maxLines=1, overflow=TextOverflow.Ellipsis) }
-                                                    Text("${songs.size}", color=Muted, fontSize=12.sp)
+                                                    Column(Modifier.weight(1f)) { Text(path.substringAfterLast('/').ifBlank { "Music" }, color=settingsText, fontSize=14.sp); Text(path, color=settingsMuted, fontSize=10.sp, maxLines=1, overflow=TextOverflow.Ellipsis) }
+                                                    Text("${songs.size}", color=settingsMuted, fontSize=12.sp)
                                                 }
                                             }
                                             OutlinedButton(onClick=rescan, modifier=Modifier.fillMaxWidth()) { Icon(Icons.Rounded.Refresh, null); Spacer(Modifier.width(6.dp)); Text("Rescan device") }
                                         }
-                                        SettingsCard("Supported files", "Local music library") { Text("Audio files indexed by Android MediaStore are included. Folder exclusions and custom folder grants can be added in a later storage pass.", color=Muted, fontSize=12.sp) }
+                                        SettingsCard("Supported files", "Local music library", lightTheme) { Text("Audio files indexed by Android MediaStore are included. Folder exclusions and custom folder grants can be added in a later storage pass.", color=settingsMuted, fontSize=12.sp) }
                                     }
-                                    else -> SettingsCard("Advanced features", "Playback and library diagnostics") {
-                                        Text("Indexed tracks: ${tracks.size}", color=White, fontSize=14.sp)
-                                        Text("Playback engine: AndroidX Media3 / ExoPlayer", color=Muted, fontSize=12.sp)
-                                        Text("Audio effects are provided by the device when supported.", color=Muted, fontSize=12.sp)
+                                    else -> SettingsCard("Advanced features", "Playback and library diagnostics", lightTheme) {
+                                        Text("Indexed tracks: ${tracks.size}", color=settingsText, fontSize=14.sp)
+                                        Text("Playback engine: AndroidX Media3 / ExoPlayer", color=settingsMuted, fontSize=12.sp)
+                                        Text("Audio effects are provided by the device when supported.", color=settingsMuted, fontSize=12.sp)
                                     }
                                 }
                             }
@@ -983,17 +998,21 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
     }
 }
 
-@Composable private fun SettingsCard(title: String, subtitle: String, content: @Composable ColumnScope.() -> Unit) {
-    Column(Modifier.fillMaxWidth().animateContentSize(spring(dampingRatio=.84f, stiffness=380f)).clip(RoundedCornerShape(22.dp)).background(Color.White.copy(.065f)).border(1.dp,Color.White.copy(.11f),RoundedCornerShape(22.dp)).padding(16.dp), verticalArrangement=Arrangement.spacedBy(9.dp)) {
-        Text(title, color=White, fontSize=16.sp, fontWeight=FontWeight.SemiBold)
-        Text(subtitle, color=Muted, fontSize=11.sp)
+@Composable private fun SettingsCard(title: String, subtitle: String, lightTheme: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
+    val cardText = if(lightTheme) Color(0xFF201D2B) else White
+    val cardMuted = if(lightTheme) Color(0xFF625D70) else Muted
+    val cardSurface = if(lightTheme) Color.White.copy(.72f) else Color.White.copy(.065f)
+    val cardEdge = if(lightTheme) Color(0xFFBDB6CB).copy(.65f) else Color.White.copy(.11f)
+    Column(Modifier.fillMaxWidth().animateContentSize(spring(dampingRatio=.84f, stiffness=380f)).clip(RoundedCornerShape(22.dp)).background(cardSurface).border(1.dp,cardEdge,RoundedCornerShape(22.dp)).padding(16.dp), verticalArrangement=Arrangement.spacedBy(9.dp)) {
+        Text(title, color=cardText, fontSize=16.sp, fontWeight=FontWeight.SemiBold)
+        Text(subtitle, color=cardMuted, fontSize=11.sp)
         content()
     }
 }
 
-@Composable private fun SettingsSwitch(label: String, checked: Boolean, change: (Boolean) -> Unit) {
+@Composable private fun SettingsSwitch(label: String, checked: Boolean, lightTheme: Boolean = false, change: (Boolean) -> Unit) {
     Row(Modifier.fillMaxWidth().animateContentSize(spring(dampingRatio=.86f, stiffness=420f)).padding(vertical=3.dp), horizontalArrangement=Arrangement.SpaceBetween, verticalAlignment=Alignment.CenterVertically) {
-        Text(label, color=White, fontSize=13.sp)
+        Text(label, color=if(lightTheme) Color(0xFF201D2B) else White, fontSize=13.sp)
         Switch(checked=checked,onCheckedChange=change)
     }
 }

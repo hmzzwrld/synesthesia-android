@@ -52,3 +52,15 @@ The GitHub Actions workflow builds `app-debug.apk` with Gradle 8.7, Android Grad
 - Track title, artist, album and artwork URI are attached to each media item for system media metadata.
 
 The notification and lock-screen presentation are rendered by Android from the app's MediaSession metadata; their exact appearance varies by Android version and device manufacturer.
+
+
+## Interaction and player polish update
+
+This update includes:
+- A full-screen expanded player surface with a fade/scale entrance and exit.
+- Continuous queue-handle reordering: the dragged track remains lifted until release, and neighbouring rows animate into place.
+- Animated settings-panel entry/exit and collapsible settings categories (tap the active category again to close it).
+- Theme-aware settings surfaces and typography for light mode.
+- Gradle setup caching in the GitHub Actions build workflow.
+
+The complete light-theme audit across every Home, Library, Search, queue, and dialog component is still a separate verification pass. Build the APK through the `next-update-test` branch before merging.
