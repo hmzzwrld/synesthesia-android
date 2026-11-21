@@ -4,6 +4,7 @@ name: Build SYNESTHESIA Native APK
 on:
   push:
     branches: [ main ]
+              [next-update-test]
 
 permissions:
   contents: write
