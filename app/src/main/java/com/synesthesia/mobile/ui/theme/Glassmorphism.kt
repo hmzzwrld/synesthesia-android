@@ -26,6 +26,12 @@ fun Modifier.glassSurface(
     isDarkTheme: Boolean = true
 ): Modifier = this.composed {
     val resolvedShape = shape
+    if (!GlassPrefs.enabled) {
+        return@composed this
+            .clip(resolvedShape)
+            .background(if (isDarkTheme) Color(0xFF181624) else Color(0xFFEDEBF4))
+            .border(1.dp, Color.White.copy(alpha = if (isDarkTheme) 0.08f else 0.5f), resolvedShape)
+    }
     val fill = if (isDarkTheme) {
         Brush.linearGradient(
             colors = listOf(

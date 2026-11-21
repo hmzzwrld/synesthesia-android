@@ -78,6 +78,10 @@ import dev.chrisbanes.haze.hazeChild
 import androidx.compose.ui.res.painterResource
 import com.synesthesia.mobile.ui.theme.SynesthesiaAtmosphere
 import com.synesthesia.mobile.ui.theme.glassSurface
+import com.synesthesia.mobile.ui.theme.GlassPrefs
+import com.synesthesia.mobile.ui.theme.glassOnly
+import com.synesthesia.mobile.ui.theme.glassBackdrop
+import com.synesthesia.mobile.ui.theme.liquidEdge
 import com.synesthesia.mobile.util.ColorExtractor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -151,6 +155,7 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
     var settingsOpen by remember { mutableStateOf(false) }
     val appearancePrefs = remember { context.getSharedPreferences("synesthesia_appearance", 0) }
     var lightTheme by remember { mutableStateOf(appearancePrefs.getBoolean("light_theme", false)) }
+    remember { GlassPrefs.enabled = appearancePrefs.getBoolean("glass_enabled", true) }
     var equalizerOpen by remember { mutableStateOf(false) }
     var liquidQueueOpen by remember { mutableStateOf(false) }
     var scanning by remember { mutableStateOf(false) }
@@ -392,7 +397,7 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                 }
                 if(settingsOpen) {
                     BackHandler(enabled=true) { settingsOpen=false }
-                    SettingsScreen(tracks, lightTheme, { lightTheme=it; appearancePrefs.edit().putBoolean("light_theme",it).apply() }, { settingsOpen=false }, { if(hasPermission) scope.launch { scan() } else launcher.launch(permission) })
+                    SettingsScreen(tracks, lightTheme, { lightTheme=it; appearancePrefs.edit().putBoolean("light_theme",it).apply() }, { GlassPrefs.enabled=it; appearancePrefs.edit().putBoolean("glass_enabled",it).apply() }, { settingsOpen=false }, { if(hasPermission) scope.launch { scan() } else launcher.launch(permission) })
                 }
                 if(equalizerOpen) EqualizerSheet(player.audioSessionId, { equalizerOpen=false })
                 if(!hasPermission) PermissionPrompt { launcher.launch(permission) }
@@ -483,25 +488,21 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
             .wrapContentWidth()
             .animateContentSize(spring(dampingRatio=.62f, stiffness=340f))
             .graphicsLayer { this.scaleX = podScaleX; this.scaleY = podScaleY }
-            .shadow(20.dp, podShape, ambientColor=podA.copy(.22f), spotColor=podC.copy(.12f))
+            .glassOnly { shadow(20.dp, podShape, ambientColor=podA.copy(.22f), spotColor=podC.copy(.12f)) }
+            .liquidEdge(strengthDp = 13f)
             // Clip BEFORE the backdrop effect and again afterwards: this prevents Haze's
             // rectangular capture layer from leaking beyond the pill's rounded silhouette.
             .clip(podShape)
-            .hazeChild(state = hazeState) {
-                blurRadius = 14.dp
-                backgroundColor = Color.Transparent
-                noiseFactor = 0.018f
-                inputScale = HazeInputScale.Fixed(0.66f)
-            }
+            .glassBackdrop(hazeState, 14.dp, 0.018f)
             .clip(podShape)
             // Website material: dark translucent base, liquid fill, ambient tint and gloss.
-            .background(Color(0xFF0E0E18).copy(.42f))
-            .background(Brush.linearGradient(listOf(Color.White.copy(.14f),Color.White.copy(.04f),Color(0xFF141222).copy(.38f))))
-            .background(Brush.radialGradient(listOf(podA.copy(.16f),Color.Transparent),radius=460f,center=androidx.compose.ui.geometry.Offset(70f,70f)))
-            .background(Brush.radialGradient(listOf(podB.copy(.14f),Color.Transparent),radius=360f,center=androidx.compose.ui.geometry.Offset(330f,120f)))
-            .background(Brush.radialGradient(listOf(podC.copy(.12f),Color.Transparent),radius=420f,center=androidx.compose.ui.geometry.Offset(220f,180f)))
-            .background(Brush.radialGradient(listOf(Color.White.copy(.23f),Color.Transparent),radius=250f,center=androidx.compose.ui.geometry.Offset(100f,-35f)))
-            .border(1.dp,Brush.verticalGradient(listOf(Color.White.copy(.42f),Color.White.copy(.17f),Color.White.copy(.07f))),podShape)
+            .glassOnly { background(Color(0xFF0E0E18).copy(.42f)) }
+            .glassOnly { background(Brush.linearGradient(listOf(Color.White.copy(.14f),Color.White.copy(.04f),Color(0xFF141222).copy(.38f)))) }
+            .glassOnly { background(Brush.radialGradient(listOf(podA.copy(.16f),Color.Transparent),radius=460f,center=androidx.compose.ui.geometry.Offset(70f,70f))) }
+            .glassOnly { background(Brush.radialGradient(listOf(podB.copy(.14f),Color.Transparent),radius=360f,center=androidx.compose.ui.geometry.Offset(330f,120f))) }
+            .glassOnly { background(Brush.radialGradient(listOf(podC.copy(.12f),Color.Transparent),radius=420f,center=androidx.compose.ui.geometry.Offset(220f,180f))) }
+            .glassOnly { background(Brush.radialGradient(listOf(Color.White.copy(.23f),Color.Transparent),radius=250f,center=androidx.compose.ui.geometry.Offset(100f,-35f))) }
+            .glassOnly { border(1.dp,Brush.verticalGradient(listOf(Color.White.copy(.42f),Color.White.copy(.17f),Color.White.copy(.07f))),podShape) }
             .combinedClickable(onClick=expand,onLongClick=openQueue)
             .padding(start=13.dp,end=18.dp,top=13.dp,bottom=13.dp),
         verticalAlignment=Alignment.CenterVertically
@@ -577,29 +578,24 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                 .border(1.dp,Color.White.copy(.22f),CircleShape))
             Box(
                 Modifier.fillMaxSize()
-                    .shadow(28.dp,organicShape,ambientColor=accent.copy(.20f),spotColor=Color.Black.copy(.56f))
+                    .glassOnly { shadow(28.dp,organicShape,ambientColor=accent.copy(.20f),spotColor=Color.Black.copy(.56f)) }
+                    .liquidEdge(cornerRadius=46.dp, strengthDp=10f)
                     .clip(organicShape)
-                    .hazeChild(state=hazeState) {
-                        // The web queue uses blur(30px) saturate(180%).
-                        blurRadius=30.dp
-                        backgroundColor=Color.Transparent
-                        noiseFactor=0.018f
-                        inputScale=HazeInputScale.Fixed(0.66f)
-                    }
+                    .glassBackdrop(hazeState, 30.dp, 0.018f)
                     .clip(organicShape)
                     // Darker material keeps list content legible while retaining the blurred background.
-                    .background(Color(0xFF0E0C1A).copy(.46f))
-                    .background(Brush.linearGradient(listOf(Color.White.copy(.14f),Color.White.copy(.035f),Color(0xFF0E0C1A).copy(.30f))))
-                    .background(Brush.radialGradient(listOf(palette.first.copy(.20f),Color.Transparent),radius=850f,center=androidx.compose.ui.geometry.Offset(500f,1200f)))
-                    .background(Brush.radialGradient(listOf(palette.second.copy(.12f),Color.Transparent),radius=620f,center=androidx.compose.ui.geometry.Offset(0f,0f)))
-                    .background(Brush.radialGradient(listOf(palette.third.copy(.10f),Color.Transparent),radius=500f,center=androidx.compose.ui.geometry.Offset(300f,-60f)))
-                    .border(1.dp,Brush.verticalGradient(listOf(Color.White.copy(.42f),Color.White.copy(.17f),Color.White.copy(.07f))),organicShape)
+                    .glassOnly { background(Color(0xFF0E0C1A).copy(.46f)) }
+                    .glassOnly { background(Brush.linearGradient(listOf(Color.White.copy(.14f),Color.White.copy(.035f),Color(0xFF0E0C1A).copy(.30f)))) }
+                    .glassOnly { background(Brush.radialGradient(listOf(palette.first.copy(.20f),Color.Transparent),radius=850f,center=androidx.compose.ui.geometry.Offset(500f,1200f))) }
+                    .glassOnly { background(Brush.radialGradient(listOf(palette.second.copy(.12f),Color.Transparent),radius=620f,center=androidx.compose.ui.geometry.Offset(0f,0f))) }
+                    .glassOnly { background(Brush.radialGradient(listOf(palette.third.copy(.10f),Color.Transparent),radius=500f,center=androidx.compose.ui.geometry.Offset(300f,-60f))) }
+                    .glassOnly { border(1.dp,Brush.verticalGradient(listOf(Color.White.copy(.42f),Color.White.copy(.17f),Color.White.copy(.07f))),organicShape) }
             ) {
                 // Website's lq-sheen: broad top reflection and a faint lower-right reflection.
-                Box(Modifier.fillMaxSize().background(
+                if(GlassPrefs.enabled) Box(Modifier.fillMaxSize().background(
                     Brush.radialGradient(listOf(Color.White.copy(.20f),Color.Transparent),radius=430f,center=androidx.compose.ui.geometry.Offset(210f,0f))
                 ))
-                Box(Modifier.fillMaxSize().background(
+                if(GlassPrefs.enabled) Box(Modifier.fillMaxSize().background(
                     Brush.radialGradient(listOf(Color.White.copy(.07f),Color.Transparent),radius=300f,center=androidx.compose.ui.geometry.Offset(900f,1500f))
                 ))
                 Column(
@@ -864,7 +860,7 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
     }
 }
 
-@Composable private fun SettingsScreen(tracks: List<LocalTrack>, lightTheme: Boolean, setLightTheme: (Boolean) -> Unit, close: () -> Unit, rescan: () -> Unit) {
+@Composable private fun SettingsScreen(tracks: List<LocalTrack>, lightTheme: Boolean, setLightTheme: (Boolean) -> Unit, setGlass: (Boolean) -> Unit, close: () -> Unit, rescan: () -> Unit) {
     var section by remember { mutableStateOf("Look & Feel") }
     var reduceMotion by remember { mutableStateOf(false) }
     var gapless by remember { mutableStateOf(true) }
@@ -907,6 +903,16 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                                                 listOf(false to "Dark", true to "Light").forEach { (light,label) ->
                                                     Box(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(if(lightTheme==light) Color(0xFF7655A8).copy(.55f) else Color.Transparent).clickable { setLightTheme(light) }.padding(vertical=13.dp), contentAlignment=Alignment.Center) {
                                                         Text(label, color=if(lightTheme==light) White else Muted, fontSize=13.sp, fontWeight=FontWeight.SemiBold)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        SettingsCard("Glass", "Liquid glass effects") {
+                                            Text("Glass On is the optimal app experience. Glass Off makes the app fully flat and lighter on battery.", color=Muted, fontSize=13.sp)
+                                            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color.White.copy(.06f)).padding(4.dp), horizontalArrangement=Arrangement.spacedBy(5.dp)) {
+                                                listOf(true to "Glass On", false to "Glass Off").forEach { (on,label) ->
+                                                    Box(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(if(GlassPrefs.enabled==on) Color(0xFF7655A8).copy(.55f) else Color.Transparent).clickable { setGlass(on) }.padding(vertical=13.dp), contentAlignment=Alignment.Center) {
+                                                        Text(label, color=if(GlassPrefs.enabled==on) White else Muted, fontSize=13.sp, fontWeight=FontWeight.SemiBold)
                                                     }
                                                 }
                                             }
