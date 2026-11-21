@@ -41,7 +41,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.animateItemPlacement
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -566,6 +566,7 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
 }
 
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable private fun LiquidQueueSheet(player:ExoPlayer, library:List<LocalTrack>, palette:Triple<Color,Color,Color>, hazeState:HazeState, close:()->Unit) {
     var queueRevision by remember { mutableIntStateOf(0) }
     var queueBookmarked by remember { mutableStateOf(false) }
@@ -681,7 +682,11 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                             val current=index==player.currentMediaItemIndex
                             val isDragging = draggingTrackId == item.id
                             Row(
-                                Modifier.fillMaxWidth().animateItemPlacement(animationSpec=spring(dampingRatio=.82f,stiffness=360f)).clip(RoundedCornerShape(18.dp))
+                                Modifier.fillMaxWidth().animateItem(
+                                    fadeInSpec = tween(180),
+                                    fadeOutSpec = tween(120),
+                                    placementSpec = spring(dampingRatio = .82f, stiffness = 360f)
+                                ).clip(RoundedCornerShape(18.dp))
                                     .graphicsLayer { scaleX=if(isDragging) 1.025f else 1f; scaleY=if(isDragging) 1.025f else 1f; shadowElevation=if(isDragging) 12.dp.toPx() else 0f }
                                     .glassOnly { background(if(current)
                                         Brush.horizontalGradient(listOf(accent.copy(.20f),Color.White.copy(.045f)))
