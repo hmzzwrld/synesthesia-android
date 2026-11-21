@@ -378,7 +378,7 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                     }
                 }
                 } // End captured background/content layer.
-                if(expandedPlayer && selected!=null) PlayerSheet(selected!!, playing, { if(player.isPlaying) player.pause() else player.play() }, {player.seekToPreviousMediaItem()}, {player.seekToNextMediaItem()}, {expandedPlayer=false}, player, tracks, displayedPalette, { equalizerOpen=true })
+                if(expandedPlayer && selected!=null) PlayerSheet(selected!!, playing, { if(player.isPlaying) player.pause() else player.play() }, {player.seekToPreviousMediaItem()}, {player.seekToNextMediaItem()}, {expandedPlayer=false}, player, tracks, displayedPalette, lightTheme, { equalizerOpen=true })
                 // Queue is drawn first; the compact island is drawn above it, just like the website z-index stack.
                 AnimatedVisibility(visible=liquidQueueOpen,enter=fadeIn(tween(160))+slideInVertically(spring(dampingRatio=.78f,stiffness=360f)){it/5},exit=fadeOut(tween(130))+slideOutVertically(tween(180)){it/3}) {
                     LiquidQueueSheet(player, tracks, displayedPalette, glassHaze, { liquidQueueOpen=false })
@@ -556,6 +556,7 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
 @Composable private fun LiquidQueueSheet(player:ExoPlayer, library:List<LocalTrack>, palette:Triple<Color,Color,Color>, hazeState:HazeState, close:()->Unit) {
     var queueRevision by remember { mutableIntStateOf(0) }
     var queueBookmarked by remember { mutableStateOf(false) }
+    var draggingTrackId by remember { mutableStateOf<Long?>(null) }
     val items = remember(player, library, queueRevision) {
         (0 until player.mediaItemCount).mapNotNull { i ->
             val id=player.getMediaItemAt(i).mediaId.toLongOrNull()
@@ -665,35 +666,44 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                         items(items.size,key={index -> items[index].id}) { index ->
                             val item=items[index]
                             val current=index==player.currentMediaItemIndex
-                            var dragDistance by remember(index,queueRevision) { mutableFloatStateOf(0f) }
+                            val isDragging = draggingTrackId == item.id
                             Row(
                                 Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
+                                    .graphicsLayer { scaleX=if(isDragging) 1.025f else 1f; scaleY=if(isDragging) 1.025f else 1f; shadowElevation=if(isDragging) 12.dp.toPx() else 0f }
                                     .glassOnly { background(if(current)
                                         Brush.horizontalGradient(listOf(accent.copy(.20f),Color.White.copy(.045f)))
                                     else Brush.horizontalGradient(listOf(Color.White.copy(.018f),Color.Transparent))) }
                                     .flatOnly { if(current) background(accent.copy(.24f)) else this }
-                                    .pointerInput(index,queueRevision) {
-                                        detectDragGesturesAfterLongPress(
-                                            onDragEnd={dragDistance=0f},
-                                            onDragCancel={dragDistance=0f},
-                                            onDrag={change, amount ->
-                                                change.consume()
-                                                dragDistance += amount.y
-                                                val step=if(dragDistance>58f) 1 else if(dragDistance < -58f) -1 else 0
-                                                val target=index+step
-                                                if(step!=0 && target>player.currentMediaItemIndex && target in 0 until player.mediaItemCount) {
-                                                    player.moveMediaItem(index,target)
-                                                    queueRevision++
-                                                    dragDistance=0f
-                                                }
-                                            }
-                                        )
-                                    }
                                     .clickable { player.seekToDefaultPosition(index); player.play() }
                                     .padding(start=7.dp,end=12.dp,top=7.dp,bottom=7.dp),
                                 verticalAlignment=Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Rounded.DragHandle,null,tint=Muted.copy(.85f),modifier=Modifier.size(22.dp))
+                                Icon(Icons.Rounded.DragHandle,null,tint=if(isDragging) accent else Muted.copy(.85f),
+                                    modifier=Modifier.size(28.dp).pointerInput(item.id,queueRevision) {
+                                        var dragDistance=0f
+                                        detectDragGesturesAfterLongPress(
+                                            onDragStart={draggingTrackId=item.id; dragDistance=0f},
+                                            onDragEnd={draggingTrackId=null; dragDistance=0f},
+                                            onDragCancel={draggingTrackId=null; dragDistance=0f},
+                                            onDrag={change, amount ->
+                                                change.consume()
+                                                dragDistance += amount.y
+                                                val threshold=48f
+                                                if(kotlin.math.abs(dragDistance)>=threshold) {
+                                                    val from=(0 until player.mediaItemCount).firstOrNull { player.getMediaItemAt(it).mediaId==item.id.toString() }
+                                                    if(from!=null && from>player.currentMediaItemIndex) {
+                                                        val step=if(dragDistance>0) 1 else -1
+                                                        val target=from+step
+                                                        if(target>player.currentMediaItemIndex && target in 0 until player.mediaItemCount) {
+                                                            player.moveMediaItem(from,target)
+                                                            queueRevision++
+                                                        }
+                                                    }
+                                                    dragDistance=0f
+                                                }
+                                            }
+                                        )
+                                    })
                                 Spacer(Modifier.width(8.dp))
                                 Box(Modifier.size(46.dp).clip(CircleShape)
                                     .border(1.dp,Color.White.copy(.15f),CircleShape)) { Artwork(item.artwork,46) }
@@ -724,8 +734,13 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
     player: ExoPlayer,
     queue: List<LocalTrack>,
     palette: Triple<Color,Color,Color>,
+    lightTheme: Boolean,
     openEqualizer: () -> Unit
 ) {
+    val playerText = if(lightTheme) Color(0xFF171522) else White
+    val playerMuted = if(lightTheme) Color(0xFF555367) else Muted
+    val playerSurface = if(lightTheme) Color(0xFFF4F2F8) else Color(0xFF171522)
+    val playerEdge = if(lightTheme) Color(0xFFB9B3C8) else Color.White.copy(.18f)
     var progress by remember { mutableFloatStateOf(0f) }
     var shuffle by remember { mutableStateOf(player.shuffleModeEnabled) }
     var repeat by remember { mutableIntStateOf(player.repeatMode) }
@@ -747,13 +762,18 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
         ),label="player-pod-tether-pulse")
     Box(Modifier.fillMaxSize()) {
         // Artwork-derived atmosphere sits behind the same liquid surface used by the website.
-        if (!GlassPrefs.enabled) Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(accent.copy(.42f), Color(0xFF0A0A14)))))
-        if (GlassPrefs.enabled && track.artwork != null) {
+        if (track.artwork != null) {
             AsyncImage(model=track.artwork, contentDescription=null, contentScale=ContentScale.Crop,
-                modifier=Modifier.fillMaxSize().blur(64.dp), alpha=.48f)
+                modifier=Modifier.fillMaxSize().blur(72.dp), alpha=if(lightTheme) .30f else .48f)
         }
-        if (GlassPrefs.enabled) Box(Modifier.fillMaxSize().background(Brush.radialGradient(
-            listOf(Color(0xFF7655A8).copy(.22f), Color(0xFF080812).copy(.38f), Color.Transparent), radius=1100f
+        Box(Modifier.fillMaxSize().background(
+            Brush.verticalGradient(
+                if(lightTheme) listOf(Color(0xDDF4F1F8), Color(0xEAF4F2F8), Color(0xF5EEEAF5))
+                else listOf(Color(0xB8080812), Color(0xD8080812), Color(0xF0080812))
+            )
+        ))
+        Box(Modifier.fillMaxSize().background(Brush.radialGradient(
+            listOf(accent.copy(if(lightTheme) .16f else .24f), accentSecondary.copy(.10f), Color.Transparent), radius=1150f
         )))
         // The website hides the mini-player and navigation while expanded. Respect the status-bar/notch inset.
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Black.copy(.22f),Color.Transparent,Color.Transparent))).clickable(onClick=close))
@@ -765,23 +785,23 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                 Modifier.align(Alignment.TopCenter).padding(top=topInset + 10.dp).fillMaxWidth().height(expandedHeight).padding(horizontal=12.dp).widthIn(max=440.dp)
                     .glassOnly { shadow(26.dp,panelShape,ambientColor=accent.copy(.18f),spotColor=Color.Black.copy(.42f)) }
                     .clip(panelShape)
-                    .background(Color(0xFF171522).copy(if(GlassPrefs.enabled) .72f else .97f))
-                    .glassOnly { background(Brush.linearGradient(listOf(Color.White.copy(.18f),Color.White.copy(.045f),Color(0xFF090914).copy(.34f)))) }
-                    .glassOnly { border(1.dp,Brush.verticalGradient(listOf(Color.White.copy(.34f),Color.White.copy(.12f),Color.White.copy(.07f))),panelShape) }
+                    .background(playerSurface)
+                    .background(Brush.verticalGradient(listOf(Color.White.copy(if(lightTheme) .72f else .10f), Color.Transparent, Color.Black.copy(if(lightTheme) .035f else .12f))))
+                    .border(1.dp,Brush.verticalGradient(listOf(playerEdge,playerEdge.copy(alpha=.45f))),panelShape)
                     .clickable {}.padding(horizontal=22.dp, vertical=17.dp),
                 horizontalAlignment=Alignment.CenterHorizontally,
                 verticalArrangement=Arrangement.spacedBy(9.dp)
             ) {
                 // Website header: close orb, centred Now Playing label and queue/menu action.
                 Row(Modifier.fillMaxWidth().height(42.dp),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
-                    Box(Modifier.size(36.dp).clip(CircleShape).background(Color.White.copy(.10f)).border(1.dp,Color.White.copy(.16f),CircleShape).clickable(onClick=close),contentAlignment=Alignment.Center) {
-                        Icon(Icons.Rounded.KeyboardArrowDown,"Close player",tint=White,modifier=Modifier.size(25.dp))
+                    Box(Modifier.size(36.dp).clip(CircleShape).background(playerText.copy(.07f)).border(1.dp,playerEdge,CircleShape).clickable(onClick=close),contentAlignment=Alignment.Center) {
+                        Icon(Icons.Rounded.KeyboardArrowDown,"Close player",tint=playerText,modifier=Modifier.size(25.dp))
                     }
                     Column(horizontalAlignment=Alignment.CenterHorizontally) {
                         Text("NOW PLAYING",color=accent,letterSpacing=2.1.sp,fontSize=10.sp,fontWeight=FontWeight.Bold)
-                        Text("YOUR SOUND. YOUR WORLD.",color=Muted.copy(.9f),fontSize=9.sp,letterSpacing=1.35.sp)
+                        Text("YOUR SOUND. YOUR WORLD.",color=playerMuted.copy(.9f),fontSize=9.sp,letterSpacing=1.35.sp)
                     }
-                    Box(Modifier.size(36.dp).clip(CircleShape).background(Color.White.copy(.10f)).border(1.dp,Color.White.copy(.16f),CircleShape).clickable { smartQueueOpen = !smartQueueOpen },contentAlignment=Alignment.Center) {
+                    Box(Modifier.size(36.dp).clip(CircleShape).background(playerText.copy(.07f)).border(1.dp,playerEdge,CircleShape).clickable { smartQueueOpen = !smartQueueOpen },contentAlignment=Alignment.Center) {
                         Icon(Icons.Rounded.QueueMusic,"Queue",tint=accent,modifier=Modifier.size(21.dp))
                     }
                 }
@@ -794,13 +814,13 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                             if(track.artwork!=null) AsyncImage(model=track.artwork,contentDescription="Album artwork",contentScale=ContentScale.Crop,modifier=Modifier.fillMaxSize())
                             else Icon(Icons.Rounded.Album,null,tint=Lavender,modifier=Modifier.align(Alignment.Center).size(92.dp))
                             if(GlassPrefs.enabled) Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color.White.copy(.18f),Color.Transparent,Color.Black.copy(.12f)))))
-                            Box(Modifier.fillMaxSize().border(1.dp,Color.White.copy(.20f),RoundedCornerShape(34.dp)))
+                            Box(Modifier.fillMaxSize().border(1.dp,playerEdge,RoundedCornerShape(34.dp)))
                         }
                         androidx.compose.animation.AnimatedVisibility(visible=smartQueueOpen, modifier=Modifier.align(Alignment.Center), enter=fadeIn(tween(180))+androidx.compose.animation.scaleIn(tween(220)), exit=fadeOut(tween(130))) {
-                            Column(Modifier.fillMaxSize().clip(RoundedCornerShape(34.dp)).background(Color(0xE910101B)).border(1.dp,Color.White.copy(.20f),RoundedCornerShape(34.dp)).padding(14.dp)) {
+                            Column(Modifier.fillMaxSize().clip(RoundedCornerShape(34.dp)).background(if(lightTheme) Color(0xF2F0EDF5) else Color(0xE910101B)).border(1.dp,playerEdge,RoundedCornerShape(34.dp)).padding(14.dp)) {
                                 Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween) {
-                                    Column { Text("SMART QUEUE",color=accent,fontSize=10.sp,letterSpacing=2.sp,fontWeight=FontWeight.Bold); Text("Playing next",color=White,fontSize=18.sp,fontWeight=FontWeight.Bold) }
-                                    IconButton(onClick={smartQueueOpen=false}) { Icon(Icons.Rounded.Close,"Close queue",tint=White) }
+                                    Column { Text("SMART QUEUE",color=accent,fontSize=10.sp,letterSpacing=2.sp,fontWeight=FontWeight.Bold); Text("Playing next",color=playerText,fontSize=18.sp,fontWeight=FontWeight.Bold) }
+                                    IconButton(onClick={smartQueueOpen=false}) { Icon(Icons.Rounded.Close,"Close queue",tint=playerText) }
                                 }
                                 LazyColumn(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(5.dp)) {
                                     items((0 until player.mediaItemCount).toList()) { index ->
@@ -808,20 +828,20 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                                         val item=queue.firstOrNull { it.id==mediaId }
                                         if(item!=null) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(if(index==player.currentMediaItemIndex) accent.copy(.20f) else Color.White.copy(.055f)).clickable { player.seekTo(index,0L); player.play(); smartQueueOpen=false }.padding(7.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(9.dp)) {
                                             Artwork(item.artwork,38)
-                                            Column(Modifier.weight(1f)) { Text(item.title,color=if(index==player.currentMediaItemIndex)accent else White,fontSize=12.sp,fontWeight=FontWeight.SemiBold,maxLines=1,overflow=TextOverflow.Ellipsis); Text(item.artist,color=Muted,fontSize=10.sp,maxLines=1,overflow=TextOverflow.Ellipsis) }
+                                            Column(Modifier.weight(1f)) { Text(item.title,color=if(index==player.currentMediaItemIndex)accent else playerText,fontSize=12.sp,fontWeight=FontWeight.SemiBold,maxLines=1,overflow=TextOverflow.Ellipsis); Text(item.artist,color=playerMuted,fontSize=10.sp,maxLines=1,overflow=TextOverflow.Ellipsis) }
                                             if(index==player.currentMediaItemIndex) Icon(Icons.Rounded.Equalizer,null,tint=accent,modifier=Modifier.size(17.dp))
                                         }
                                     }
                                 }
-                                Text("Tap a track to play",color=Muted,fontSize=10.sp,modifier=Modifier.align(Alignment.CenterHorizontally).padding(top=5.dp))
+                                Text("Tap a track to play",color=playerMuted,fontSize=10.sp,modifier=Modifier.align(Alignment.CenterHorizontally).padding(top=5.dp))
                             }
                         }
                     }
                 }
                 // Track identity and album line mirror .np-meta and .np-album.
                 Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(2.dp)) {
-                    Text(track.title,color=White,fontSize=21.sp,fontWeight=FontWeight.Bold,maxLines=1,overflow=TextOverflow.Ellipsis)
-                    Text(track.artist,color=Muted,fontSize=14.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
+                    Text(track.title,color=playerText,fontSize=21.sp,fontWeight=FontWeight.Bold,maxLines=1,overflow=TextOverflow.Ellipsis)
+                    Text(track.artist,color=playerMuted,fontSize=14.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
                     Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(6.dp)) {
                         Icon(Icons.Rounded.Album,null,tint=accent.copy(.85f),modifier=Modifier.size(12.dp))
                         Text(track.album,color=accent.copy(.85f),fontSize=11.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
@@ -831,33 +851,33 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                     TextButton(onClick=openEqualizer) { Icon(Icons.Rounded.Equalizer,null,tint=accent,modifier=Modifier.size(17.dp)); Spacer(Modifier.width(6.dp)); Text("EQUALIZER",color=accent,fontSize=10.sp,letterSpacing=1.3.sp) }
                 }
                 Slider(value=progress,onValueChange={progress=it;if(player.duration>0)player.seekTo((player.duration*it).toLong())},
-                    colors=SliderDefaults.colors(thumbColor=accent,activeTrackColor=accent,inactiveTrackColor=Color.White.copy(.16f)),
+                    colors=SliderDefaults.colors(thumbColor=accent,activeTrackColor=accent,inactiveTrackColor=playerText.copy(.16f)),
                     modifier=Modifier.fillMaxWidth().height(25.dp))
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
-                    Text(formatDuration(player.currentPosition.coerceAtLeast(0)),color=Muted,fontSize=10.sp)
-                    Text(if(player.duration>0) "-${formatDuration((player.duration-player.currentPosition).coerceAtLeast(0))}" else "0:00",color=Muted,fontSize=10.sp)
+                    Text(formatDuration(player.currentPosition.coerceAtLeast(0)),color=playerMuted,fontSize=10.sp)
+                    Text(if(player.duration>0) "-${formatDuration((player.duration-player.currentPosition).coerceAtLeast(0))}" else "0:00",color=playerMuted,fontSize=10.sp)
                 }
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically) {
-                    IconButton(onClick={shuffle=!shuffle;player.shuffleModeEnabled=shuffle},modifier=Modifier.size(42.dp)) { Icon(Icons.Rounded.Shuffle,"Shuffle",tint=if(shuffle)accent else Muted,modifier=Modifier.size(21.dp)) }
-                    IconButton(onClick=previous,modifier=Modifier.size(42.dp)) { Icon(Icons.Rounded.SkipPrevious,"Previous",tint=White,modifier=Modifier.size(28.dp)) }
+                    IconButton(onClick={shuffle=!shuffle;player.shuffleModeEnabled=shuffle},modifier=Modifier.size(42.dp)) { Icon(Icons.Rounded.Shuffle,"Shuffle",tint=if(shuffle)accent else playerMuted,modifier=Modifier.size(21.dp)) }
+                    IconButton(onClick=previous,modifier=Modifier.size(42.dp)) { Icon(Icons.Rounded.SkipPrevious,"Previous",tint=playerText,modifier=Modifier.size(28.dp)) }
                     val playScale by animateFloatAsState(if(playing) 1f else .94f, tween(220), label="play-pause-scale")
                     FilledIconButton(toggle,colors=IconButtonDefaults.filledIconButtonColors(containerColor=accent,contentColor=Color(0xFF05050D)),modifier=Modifier.size(70.dp).graphicsLayer { scaleX=playScale; scaleY=playScale }) {
                         AnimatedContent(playing, transitionSpec={ fadeIn(tween(120))+androidx.compose.animation.scaleIn(tween(180)) togetherWith fadeOut(tween(90))+androidx.compose.animation.scaleOut(tween(120)) }, label="play-pause-icon") { isPlaying ->
                             Icon(if(isPlaying)Icons.Rounded.Pause else Icons.Rounded.PlayArrow,"Play or pause",modifier=Modifier.size(36.dp))
                         }
                     }
-                    IconButton(onClick=next,modifier=Modifier.size(42.dp)) { Icon(Icons.Rounded.SkipNext,"Next",tint=White,modifier=Modifier.size(28.dp)) }
-                    IconButton(onClick={repeat=(repeat+1)%3;player.repeatMode=repeat},modifier=Modifier.size(42.dp)) { Icon(Icons.Rounded.Repeat,"Repeat",tint=if(repeat!=Player.REPEAT_MODE_OFF)accent else Muted,modifier=Modifier.size(21.dp)) }
+                    IconButton(onClick=next,modifier=Modifier.size(42.dp)) { Icon(Icons.Rounded.SkipNext,"Next",tint=playerText,modifier=Modifier.size(28.dp)) }
+                    IconButton(onClick={repeat=(repeat+1)%3;player.repeatMode=repeat},modifier=Modifier.size(42.dp)) { Icon(Icons.Rounded.Repeat,"Repeat",tint=if(repeat!=Player.REPEAT_MODE_OFF)accent else playerMuted,modifier=Modifier.size(21.dp)) }
                 }
                 // Website's compact Up Next pill: a real preview of the next queued song.
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(999.dp))
-                    .background(Color.White.copy(.055f)).border(1.dp,Color.White.copy(.12f),RoundedCornerShape(999.dp))
+                    .background(playerText.copy(.045f)).border(1.dp,playerEdge.copy(alpha=.65f),RoundedCornerShape(999.dp))
                     .clickable { smartQueueOpen = !smartQueueOpen }
                     .padding(horizontal=9.dp,vertical=7.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
-                    if(nextTrack?.artwork!=null) Artwork(nextTrack.artwork,38) else Box(Modifier.size(38.dp).clip(CircleShape).background(Color.White.copy(.08f)),contentAlignment=Alignment.Center){Icon(Icons.Rounded.Album,null,tint=Muted)}
+                    if(nextTrack?.artwork!=null) Artwork(nextTrack.artwork,38) else Box(Modifier.size(38.dp).clip(CircleShape).background(Color.White.copy(.08f)),contentAlignment=Alignment.Center){Icon(Icons.Rounded.Album,null,tint=playerMuted)}
                     Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(1.dp)) {
-                        Text("UP NEXT",color=Muted,fontSize=8.sp,letterSpacing=1.5.sp)
-                        Text(nextTrack?.title ?: "End of queue",color=White,fontSize=12.sp,fontWeight=FontWeight.SemiBold,maxLines=1,overflow=TextOverflow.Ellipsis)
+                        Text("UP NEXT",color=playerMuted,fontSize=8.sp,letterSpacing=1.5.sp)
+                        Text(nextTrack?.title ?: "End of queue",color=playerText,fontSize=12.sp,fontWeight=FontWeight.SemiBold,maxLines=1,overflow=TextOverflow.Ellipsis)
                     }
                     Icon(Icons.Rounded.KeyboardArrowUp,null,tint=Muted,modifier=Modifier.size(20.dp))
                 }
