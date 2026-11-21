@@ -82,6 +82,7 @@ import com.synesthesia.mobile.ui.theme.GlassPrefs
 import com.synesthesia.mobile.ui.theme.glassOnly
 import com.synesthesia.mobile.ui.theme.glassBackdrop
 import com.synesthesia.mobile.ui.theme.liquidEdge
+import com.synesthesia.mobile.ui.theme.flatOnly
 import com.synesthesia.mobile.util.ColorExtractor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -293,52 +294,54 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                 // Capture the page behind floating controls so their surfaces can use real backdrop blur.
                 Box(Modifier.fillMaxSize().haze(state = glassHaze)) {
                 // Website reference: fixed background image, adaptive colour wash, ambient glow and fine mesh.
-                Image(
+                if (GlassPrefs.enabled) Image(
                     painter = painterResource(id = R.drawable.synesthesia_background),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize().blur(9.dp),
-                    alpha = if (lightTheme) 0.30f else 0.96f
+                    alpha = if (lightTheme) 0.30f else 0.86f,
+                    colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(displayedPalette.first.copy(alpha = if (lightTheme) 0.22f else 0.30f), androidx.compose.ui.graphics.BlendMode.SrcAtop)
                 )
                 if (lightTheme) Box(Modifier.fillMaxSize().background(Color(0xFFF4F2F8).copy(alpha=.58f)))
                 else Box(Modifier.fillMaxSize().background(Color(0xFF02070B).copy(alpha=.18f)))
-                Box(
+                if (!GlassPrefs.enabled) Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(displayedPalette.first.copy(alpha=.42f), displayedPalette.third.copy(alpha=.28f), displayedPalette.second.copy(alpha=.22f)))))
+                if (GlassPrefs.enabled) Box(
                     Modifier.fillMaxSize().background(
                         Brush.linearGradient(
-                            0f to ambientPalette.third.copy(alpha = 0.08f),
-                            0.48f to Color(0xFF05050D).copy(alpha = 0.24f),
-                            1f to ambientPalette.first.copy(alpha = 0.07f)
+                            0f to ambientPalette.third.copy(alpha = 0.26f),
+                            0.48f to Color(0xFF05050D).copy(alpha = 0.16f),
+                            1f to ambientPalette.first.copy(alpha = 0.24f)
                         )
                     )
                 )
                 // The background artwork is drawn after SynesthesiaAtmosphere's base layer,
                 // so place the album-reactive colour wash ABOVE the artwork to keep it visible.
-                Box(Modifier.fillMaxSize().background(
+                if (GlassPrefs.enabled) Box(Modifier.fillMaxSize().background(
                     Brush.radialGradient(
-                        colors = listOf(Color(0xFF4656B8).copy(alpha = 0.055f), Color.Transparent),
+                        colors = listOf(Color(0xFF4656B8).copy(alpha = 0.07f), Color.Transparent),
                         center = androidx.compose.ui.geometry.Offset(340f, 720f), radius = 1450f
                     )
                 ))
-                Box(Modifier.fillMaxSize().background(
+                if (GlassPrefs.enabled) Box(Modifier.fillMaxSize().background(
                     Brush.radialGradient(
-                        colors = listOf(displayedPalette.first.copy(alpha = 0.085f), Color.Transparent),
+                        colors = listOf(displayedPalette.first.copy(alpha = 0.38f), Color.Transparent),
                         center = androidx.compose.ui.geometry.Offset(180f, 520f), radius = 1050f
                     )
                 ))
-                Box(Modifier.fillMaxSize().background(
+                if (GlassPrefs.enabled) Box(Modifier.fillMaxSize().background(
                     Brush.radialGradient(
-                        colors = listOf(displayedPalette.second.copy(alpha = 0.06f), Color.Transparent),
+                        colors = listOf(displayedPalette.second.copy(alpha = 0.30f), Color.Transparent),
                         center = androidx.compose.ui.geometry.Offset(760f, 1180f), radius = 900f
                     )
                 ))
-                Box(Modifier.fillMaxSize().background(
+                if (GlassPrefs.enabled) Box(Modifier.fillMaxSize().background(
                     Brush.radialGradient(
-                        colors = listOf(displayedPalette.third.copy(alpha = 0.065f), Color.Transparent),
+                        colors = listOf(displayedPalette.third.copy(alpha = 0.30f), Color.Transparent),
                         center = androidx.compose.ui.geometry.Offset(520f, 1680f), radius = 1000f
                     )
                 ))
                 // Fine dotted glass mesh from the website, intentionally subtle on mobile.
-                androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+                if (GlassPrefs.enabled) androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
                     val step = 24.dp.toPx()
                     val dot = Color.White.copy(alpha = 0.025f)
                     var y = 0f
@@ -435,7 +438,8 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
 
 @Composable private fun TrackRow(track:LocalTrack,onPlay:(LocalTrack)->Unit,plays:Int?=null,rank:Int?=null) {
     Row(Modifier.fillMaxWidth().animateContentSize(spring(dampingRatio=.86f, stiffness=420f)).clip(RoundedCornerShape(19.dp))
-        .background(Brush.horizontalGradient(listOf(Color.White.copy(.075f),Color.White.copy(.025f),Color.Transparent)))
+        .glassOnly { background(Brush.horizontalGradient(listOf(Color.White.copy(.075f),Color.White.copy(.025f),Color.Transparent))) }
+        .flatOnly { background(Color.White.copy(.06f)) }
         .border(.6.dp,Color.White.copy(.065f),RoundedCornerShape(19.dp))
         .clickable{onPlay(track)}.padding(horizontal=9.dp,vertical=9.dp),verticalAlignment=Alignment.CenterVertically) {
         Box(Modifier.size(48.dp).clip(RoundedCornerShape(15.dp)).border(1.dp,Color.White.copy(.14f),RoundedCornerShape(15.dp))) { Artwork(track.artwork,48) }
@@ -570,10 +574,10 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                 .widthIn(max=420.dp).fillMaxHeight(.48f)
         ) {
             // Website .lq-drop-1 / .lq-drop-2: two glossy droplets descending from the queue's lower edge.
-            Box(Modifier.align(Alignment.BottomCenter).offset(y=14.dp).size(16.dp).shadow(10.dp,CircleShape,ambientColor=palette.first.copy(.32f))
+            if(GlassPrefs.enabled) Box(Modifier.align(Alignment.BottomCenter).offset(y=14.dp).size(16.dp).shadow(10.dp,CircleShape,ambientColor=palette.first.copy(.32f))
                 .clip(CircleShape).background(Brush.linearGradient(listOf(Color.White.copy(.28f),Color(0xFF1E1A30).copy(.72f))))
                 .border(1.dp,Color.White.copy(.24f),CircleShape))
-            Box(Modifier.align(Alignment.BottomCenter).offset(y=27.dp).size(8.dp).shadow(7.dp,CircleShape,ambientColor=palette.second.copy(.30f))
+            if(GlassPrefs.enabled) Box(Modifier.align(Alignment.BottomCenter).offset(y=27.dp).size(8.dp).shadow(7.dp,CircleShape,ambientColor=palette.second.copy(.30f))
                 .clip(CircleShape).background(Brush.linearGradient(listOf(Color.White.copy(.24f),palette.first.copy(.18f))))
                 .border(1.dp,Color.White.copy(.22f),CircleShape))
             Box(
@@ -646,7 +650,8 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                         Spacer(Modifier.width(7.dp))
                         Box(
                             Modifier.size(42.dp).clip(CircleShape)
-                                .background(Brush.radialGradient(listOf(Color.White.copy(.25f),Color.White.copy(.055f))))
+                                .glassOnly { background(Brush.radialGradient(listOf(Color.White.copy(.25f),Color.White.copy(.055f)))) }
+                                .flatOnly { background(Color.White.copy(.14f)) }
                                 .border(1.dp,Color.White.copy(.20f),CircleShape)
                                 .clickable(onClick=close),
                             contentAlignment=Alignment.Center
@@ -663,9 +668,10 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                             var dragDistance by remember(index,queueRevision) { mutableFloatStateOf(0f) }
                             Row(
                                 Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
-                                    .background(if(current)
+                                    .glassOnly { background(if(current)
                                         Brush.horizontalGradient(listOf(accent.copy(.20f),Color.White.copy(.045f)))
-                                    else Brush.horizontalGradient(listOf(Color.White.copy(.018f),Color.Transparent)))
+                                    else Brush.horizontalGradient(listOf(Color.White.copy(.018f),Color.Transparent))) }
+                                    .flatOnly { if(current) background(accent.copy(.24f)) else this }
                                     .pointerInput(index,queueRevision) {
                                         detectDragGesturesAfterLongPress(
                                             onDragEnd={dragDistance=0f},
@@ -741,11 +747,12 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
         ),label="player-pod-tether-pulse")
     Box(Modifier.fillMaxSize()) {
         // Artwork-derived atmosphere sits behind the same liquid surface used by the website.
-        if (track.artwork != null) {
+        if (!GlassPrefs.enabled) Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(accent.copy(.42f), Color(0xFF0A0A14)))))
+        if (GlassPrefs.enabled && track.artwork != null) {
             AsyncImage(model=track.artwork, contentDescription=null, contentScale=ContentScale.Crop,
                 modifier=Modifier.fillMaxSize().blur(64.dp), alpha=.48f)
         }
-        Box(Modifier.fillMaxSize().background(Brush.radialGradient(
+        if (GlassPrefs.enabled) Box(Modifier.fillMaxSize().background(Brush.radialGradient(
             listOf(Color(0xFF7655A8).copy(.22f), Color(0xFF080812).copy(.38f), Color.Transparent), radius=1100f
         )))
         // The website hides the mini-player and navigation while expanded. Respect the status-bar/notch inset.
@@ -756,11 +763,11 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
             val expandedHeight = (maxHeight - topInset - bottomInset - 28.dp).coerceAtLeast(400.dp)
             Column(
                 Modifier.align(Alignment.TopCenter).padding(top=topInset + 10.dp).fillMaxWidth().height(expandedHeight).padding(horizontal=12.dp).widthIn(max=440.dp)
-                    .shadow(26.dp,panelShape,ambientColor=accent.copy(.18f),spotColor=Color.Black.copy(.42f))
+                    .glassOnly { shadow(26.dp,panelShape,ambientColor=accent.copy(.18f),spotColor=Color.Black.copy(.42f)) }
                     .clip(panelShape)
-                    .background(Color(0xFF171522).copy(.72f))
-                    .background(Brush.linearGradient(listOf(Color.White.copy(.18f),Color.White.copy(.045f),Color(0xFF090914).copy(.34f))))
-                    .border(1.dp,Brush.verticalGradient(listOf(Color.White.copy(.34f),Color.White.copy(.12f),Color.White.copy(.07f))),panelShape)
+                    .background(Color(0xFF171522).copy(if(GlassPrefs.enabled) .72f else .97f))
+                    .glassOnly { background(Brush.linearGradient(listOf(Color.White.copy(.18f),Color.White.copy(.045f),Color(0xFF090914).copy(.34f)))) }
+                    .glassOnly { border(1.dp,Brush.verticalGradient(listOf(Color.White.copy(.34f),Color.White.copy(.12f),Color.White.copy(.07f))),panelShape) }
                     .clickable {}.padding(horizontal=22.dp, vertical=17.dp),
                 horizontalAlignment=Alignment.CenterHorizontally,
                 verticalArrangement=Arrangement.spacedBy(9.dp)
@@ -783,10 +790,10 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                     BoxWithConstraints(Modifier.fillMaxWidth(),contentAlignment=Alignment.Center) {
                         val artSide = minOf(maxWidth, maxHeight)
                         Box(Modifier.size(artSide).clip(RoundedCornerShape(34.dp)).background(Color(0xFF292039))
-                            .shadow(24.dp,RoundedCornerShape(34.dp),ambientColor=accent.copy(.16f))) {
+                            .glassOnly { shadow(24.dp,RoundedCornerShape(34.dp),ambientColor=accent.copy(.16f)) }) {
                             if(track.artwork!=null) AsyncImage(model=track.artwork,contentDescription="Album artwork",contentScale=ContentScale.Crop,modifier=Modifier.fillMaxSize())
                             else Icon(Icons.Rounded.Album,null,tint=Lavender,modifier=Modifier.align(Alignment.Center).size(92.dp))
-                            Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color.White.copy(.18f),Color.Transparent,Color.Black.copy(.12f)))))
+                            if(GlassPrefs.enabled) Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color.White.copy(.18f),Color.Transparent,Color.Black.copy(.12f)))))
                             Box(Modifier.fillMaxSize().border(1.dp,Color.White.copy(.20f),RoundedCornerShape(34.dp)))
                         }
                         androidx.compose.animation.AnimatedVisibility(visible=smartQueueOpen, modifier=Modifier.align(Alignment.Center), enter=fadeIn(tween(180))+androidx.compose.animation.scaleIn(tween(220)), exit=fadeOut(tween(130))) {

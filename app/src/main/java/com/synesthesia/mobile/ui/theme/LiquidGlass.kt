@@ -93,3 +93,7 @@ fun Modifier.liquidEdge(cornerRadius: Dp? = null, strengthDp: Float = 14f): Modi
             }
     }
 }
+
+/** Applies [block] only while glass is OFF (flat mode). */
+inline fun Modifier.flatOnly(block: Modifier.() -> Modifier): Modifier =
+    if (!GlassPrefs.enabled) block() else this

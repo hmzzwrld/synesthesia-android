@@ -35,8 +35,8 @@ fun SynesthesiaAtmosphere(
     val animatedC by animateColorAsState(targetValue = ambC, animationSpec = tween(1800), label = "ambC")
 
     // Adjust intensity based on theme (controlled/dimmer in Dark, brighter in Bright)
-    val alphaPrimary = if (isDarkTheme) 0.30f else 0.38f
-    val alphaSecondary = if (isDarkTheme) 0.22f else 0.30f
+    val alphaPrimary = if (isDarkTheme) 0.55f else 0.55f
+    val alphaSecondary = if (isDarkTheme) 0.42f else 0.42f
     val baseColor = if (isDarkTheme) SynesthesiaDarkBg else BrightBaseBg
 
     Box(
