@@ -57,6 +57,8 @@ dependencies {
     implementation(platform("androidx.compose:compose-bom:2024.12.01"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
+    // Google Fonts provider for the Urbanist + DM Sans typography system.
+    implementation("androidx.compose.ui:ui-text-google-fonts")
     // Backdrop blur for native frosted-glass surfaces (Android 12+ hardware path).
     implementation("dev.chrisbanes.haze:haze:1.1.1")
     implementation("androidx.compose.ui:ui-tooling-preview")
