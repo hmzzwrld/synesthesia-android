@@ -478,63 +478,62 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
         "Artist" -> tracks.sortedWith(compareBy<LocalTrack> { it.artist.lowercase() }.thenBy { it.title.lowercase() })
         else -> tracks.sortedBy { it.title.lowercase() }
     }
-    Column {
-        Row(Modifier.fillMaxWidth(), verticalAlignment=Alignment.CenterVertically, horizontalArrangement=Arrangement.SpaceBetween) {
-            Text("Your Library",color=White,fontSize=25.sp,fontWeight=FontWeight.Bold,fontFamily=SynesthesiaUrbanist)
-            Row(Modifier.clip(RoundedCornerShape(999.dp))
-                .glassOnly { shadow(12.dp,RoundedCornerShape(999.dp),ambientColor=Lavender.copy(.16f)) }
-                .background(if(GlassPrefs.enabled) Color.White.copy(.075f) else Color(0xFF191824))
-                .then(if(GlassPrefs.enabled) Modifier.border(1.dp,Color.White.copy(.18f),RoundedCornerShape(999.dp)) else Modifier)
-                .clickable { sortMenuOpen=!sortMenuOpen }
-                .padding(horizontal=14.dp, vertical=10.dp), verticalAlignment=Alignment.CenterVertically, horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                Icon(Icons.Rounded.Tune, null, tint=Lavender, modifier=Modifier.size(17.dp))
-                Text("Sort", color=White, fontSize=11.sp, fontWeight=FontWeight.SemiBold)
-                Icon(if(sortMenuOpen) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null, tint=Muted, modifier=Modifier.size(16.dp))
+    Box {
+        Column {
+            Row(Modifier.fillMaxWidth(), verticalAlignment=Alignment.CenterVertically, horizontalArrangement=Arrangement.SpaceBetween) {
+                Text("Your Library",color=White,fontSize=25.sp,fontWeight=FontWeight.Bold,fontFamily=SynesthesiaUrbanist)
+                Row(Modifier.clip(RoundedCornerShape(999.dp))
+                    .glassOnly { shadow(12.dp,RoundedCornerShape(999.dp),ambientColor=Lavender.copy(.16f)) }
+                    .background(if(GlassPrefs.enabled) Color.White.copy(.075f) else Color(0xFF191824))
+                    .then(if(GlassPrefs.enabled) Modifier.border(1.dp,Color.White.copy(.18f),RoundedCornerShape(999.dp)) else Modifier)
+                    .clickable { sortMenuOpen=!sortMenuOpen }
+                    .padding(horizontal=14.dp, vertical=10.dp), verticalAlignment=Alignment.CenterVertically, horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Rounded.Tune, null, tint=Lavender, modifier=Modifier.size(17.dp))
+                    Text("Sort", color=White, fontSize=11.sp, fontWeight=FontWeight.SemiBold)
+                    Icon(if(sortMenuOpen) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null, tint=Muted, modifier=Modifier.size(16.dp))
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) { LibraryTab.values().forEach { item -> FilterChip(selected==item,{choose(item)},label={Text(item.label,fontSize=11.sp)},colors=FilterChipDefaults.filterChipColors(selectedContainerColor=Violet.copy(.35f),labelColor=Muted,selectedLabelColor=White)) } }
+            Spacer(Modifier.height(8.dp))
+            when(selected) {
+                LibraryTab.SONGS -> LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(sortedTracks) { TrackRow(it,play) } }
+                LibraryTab.ALBUMS -> LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(tracks.groupBy{it.album}.toList().let { groups -> when(sort) { "Name Z–A" -> groups.sortedByDescending{it.first.lowercase()}; "Artist" -> groups.sortedWith(compareBy({it.second.firstOrNull()?.artist?.lowercase().orEmpty()},{it.first.lowercase()})); "Recently added" -> groups.sortedByDescending{it.second.maxOfOrNull { t->t.dateAdded }?:0L}; else -> groups.sortedBy{it.first.lowercase()} } }) { (name,songs) -> CollectionRow(name,songs.first().artist,"${songs.size} tracks",songs.first().artwork){songs.firstOrNull()?.let(play)} } }
+                LibraryTab.ARTISTS -> LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(tracks.groupBy{it.artist}.toList().let { groups -> if(sort=="Name Z–A") groups.sortedByDescending{it.first.lowercase()} else groups.sortedBy{it.first.lowercase()} }) { (name,songs) -> CollectionRow(name,"Artist","${songs.size} tracks",songs.first().artwork){songs.firstOrNull()?.let(play)} } }
+                LibraryTab.GENRES -> LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(tracks.groupBy{it.genre}.toList().let { groups -> if(sort=="Name Z–A") groups.sortedByDescending{it.first.lowercase()} else groups.sortedBy{it.first.lowercase()} }) { (name,songs) -> CollectionRow(name,"Genre","${songs.size} tracks",songs.first().artwork){songs.firstOrNull()?.let(play)} } }
             }
         }
         androidx.compose.animation.AnimatedVisibility(
             visible=sortMenuOpen,
-            modifier=Modifier.fillMaxWidth(),
-            enter=expandVertically(animationSpec=tween(240))+fadeIn(tween(160)),
-            exit=shrinkVertically(animationSpec=tween(180))+fadeOut(tween(110))
+            modifier=Modifier.align(Alignment.TopEnd).padding(top=58.dp),
+            enter=fadeIn(tween(150))+scaleIn(initialScale=.94f,animationSpec=tween(190))+slideInVertically(tween(190)){ -it/12 },
+            exit=fadeOut(tween(110))+scaleOut(targetScale=.97f,animationSpec=tween(130))
         ) {
-            Box(Modifier.fillMaxWidth(), contentAlignment=Alignment.CenterEnd) {
-                Column(Modifier.widthIn(max=260.dp).fillMaxWidth()
-                    .glassOnly { shadow(22.dp,RoundedCornerShape(26.dp),ambientColor=Lavender.copy(.18f)) }
-                    .clip(RoundedCornerShape(26.dp))
-                    .glassBackdrop(hazeState,22.dp,0.012f)
-                    .then(if(GlassPrefs.enabled) Modifier.background(Brush.linearGradient(listOf(Color.White.copy(.17f),Color(0xFF171522).copy(.80f),Color(0xFF171522).copy(.92f)))) else Modifier.background(Color(0xFF181624)))
-                    .then(if(GlassPrefs.enabled) Modifier.border(1.dp,Brush.verticalGradient(listOf(Color.White.copy(.34f),Lavender.copy(.16f),Color.White.copy(.07f))),RoundedCornerShape(26.dp)) else Modifier)
-                    .padding(9.dp), verticalArrangement=Arrangement.spacedBy(3.dp)) {
-                    Text("ARRANGE BY",color=Lavender,fontSize=9.sp,letterSpacing=1.8.sp,fontWeight=FontWeight.Bold,modifier=Modifier.padding(start=12.dp,top=8.dp,bottom=5.dp))
-                    sortOptions.forEachIndexed { index, option ->
-                        val active=sort==option
-                        androidx.compose.animation.AnimatedVisibility(
-                            visible=sortMenuOpen,
-                            enter=fadeIn(tween(170,delayMillis=55+index*48))+slideInVertically(tween(210,delayMillis=55+index*48)){ it/4 }
-                        ) {
-                            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(17.dp))
-                                .background(if(active) (if(GlassPrefs.enabled) Lavender.copy(.19f) else Violet.copy(.30f)) else Color.Transparent)
-                                .clickable { changeSort(option); sortMenuOpen=false }
-                                .padding(horizontal=12.dp,vertical=11.dp),verticalAlignment=Alignment.CenterVertically) {
-                                Icon(when(option) { "Recently added"->Icons.Rounded.Schedule; "Recently played"->Icons.Rounded.History; "Album"->Icons.Rounded.Album; "Artist"->Icons.Rounded.Person; else->Icons.Rounded.SortByAlpha },null,tint=if(active) Lavender else Muted,modifier=Modifier.size(17.dp))
-                                Spacer(Modifier.width(10.dp))
-                                Text(option,color=if(active) White else Muted,fontSize=12.sp,fontWeight=if(active) FontWeight.SemiBold else FontWeight.Medium,modifier=Modifier.weight(1f))
-                                if(active) Icon(Icons.Rounded.Check,null,tint=Lavender,modifier=Modifier.size(16.dp))
-                            }
+            Column(Modifier.width(260.dp).heightIn(max=430.dp)
+                .glassOnly { shadow(22.dp,RoundedCornerShape(26.dp),ambientColor=Lavender.copy(.18f)) }
+                .clip(RoundedCornerShape(26.dp))
+                .then(if(GlassPrefs.enabled) Modifier.glassBackdrop(hazeState,22.dp,0.012f).background(Brush.linearGradient(listOf(Color.White.copy(.17f),Color(0xFF171522).copy(.80f),Color(0xFF171522).copy(.92f)))) else Modifier.background(Color(0xFF08080D)))
+                .then(if(GlassPrefs.enabled) Modifier.border(1.dp,Brush.verticalGradient(listOf(Color.White.copy(.34f),Lavender.copy(.16f),Color.White.copy(.07f))),RoundedCornerShape(26.dp)) else Modifier)
+                .verticalScroll(rememberScrollState()).padding(9.dp), verticalArrangement=Arrangement.spacedBy(3.dp)) {
+                Text("ARRANGE BY",color=Lavender,fontSize=9.sp,letterSpacing=1.8.sp,fontWeight=FontWeight.Bold,modifier=Modifier.padding(start=12.dp,top=8.dp,bottom=5.dp))
+                sortOptions.forEachIndexed { index, option ->
+                    val active=sort==option
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible=sortMenuOpen,
+                        enter=fadeIn(tween(150,delayMillis=45+index*48))+slideInVertically(tween(190,delayMillis=45+index*48)){ it/5 }
+                    ) {
+                        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(17.dp))
+                            .background(if(active) (if(GlassPrefs.enabled) Lavender.copy(.19f) else Violet.copy(.30f)) else Color.Transparent)
+                            .clickable { changeSort(option); sortMenuOpen=false }
+                            .padding(horizontal=12.dp,vertical=11.dp),verticalAlignment=Alignment.CenterVertically) {
+                            Icon(when(option) { "Recently added"->Icons.Rounded.Schedule; "Recently played"->Icons.Rounded.History; "Album"->Icons.Rounded.Album; "Artist"->Icons.Rounded.Person; else->Icons.Rounded.SortByAlpha },null,tint=if(active) Lavender else Muted,modifier=Modifier.size(17.dp))
+                            Spacer(Modifier.width(10.dp))
+                            Text(option,color=if(active) White else Muted,fontSize=12.sp,fontWeight=if(active) FontWeight.SemiBold else FontWeight.Medium,modifier=Modifier.weight(1f))
+                            if(active) Icon(Icons.Rounded.Check,null,tint=Lavender,modifier=Modifier.size(16.dp))
                         }
                     }
                 }
             }
-        }
-        Spacer(Modifier.height(10.dp))
-        Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) { LibraryTab.values().forEach { item -> FilterChip(selected==item,{choose(item)},label={Text(item.label,fontSize=11.sp)},colors=FilterChipDefaults.filterChipColors(selectedContainerColor=Violet.copy(.35f),labelColor=Muted,selectedLabelColor=White)) } }
-        Spacer(Modifier.height(8.dp))
-        when(selected) {
-            LibraryTab.SONGS -> LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(sortedTracks) { TrackRow(it,play) } }
-            LibraryTab.ALBUMS -> LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(tracks.groupBy{it.album}.toList().let { groups -> when(sort) { "Name Z–A" -> groups.sortedByDescending{it.first.lowercase()}; "Artist" -> groups.sortedWith(compareBy({it.second.firstOrNull()?.artist?.lowercase().orEmpty()},{it.first.lowercase()})); "Recently added" -> groups.sortedByDescending{it.second.maxOfOrNull { t->t.dateAdded }?:0L}; else -> groups.sortedBy{it.first.lowercase()} } }) { (name,songs) -> CollectionRow(name,songs.first().artist,"${songs.size} tracks",songs.first().artwork){songs.firstOrNull()?.let(play)} } }
-            LibraryTab.ARTISTS -> LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(tracks.groupBy{it.artist}.toList().let { groups -> if(sort=="Name Z–A") groups.sortedByDescending{it.first.lowercase()} else groups.sortedBy{it.first.lowercase()} }) { (name,songs) -> CollectionRow(name,"Artist","${songs.size} tracks",songs.first().artwork){songs.firstOrNull()?.let(play)} } }
-            LibraryTab.GENRES -> LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(tracks.groupBy{it.genre}.toList().let { groups -> if(sort=="Name Z–A") groups.sortedByDescending{it.first.lowercase()} else groups.sortedBy{it.first.lowercase()} }) { (name,songs) -> CollectionRow(name,"Genre","${songs.size} tracks",songs.first().artwork){songs.firstOrNull()?.let(play)} } }
         }
     }
 }
