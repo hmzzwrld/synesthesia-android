@@ -927,7 +927,7 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
     val sections = listOf("Look & Feel", "Interface", "Audio Settings", "Files & Folders", "Advanced")
     val scrollState = androidx.compose.foundation.rememberScrollState()
     val sectionIcons = listOf(Icons.Rounded.Palette, Icons.Rounded.Tune, Icons.Rounded.GraphicEq, Icons.Rounded.Folder, Icons.Rounded.Build)
-    Box(Modifier.fillMaxSize().background(if(lightTheme) settingsSurface).clickable(interactionSource=remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication=null) {}) {
+    Box(Modifier.fillMaxSize().background(settingsSurface).clickable(interactionSource=remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication=null) {}) {
         Column(Modifier.fillMaxSize().verticalScroll(scrollState).padding(horizontal=18.dp, vertical=12.dp)) {
             Row(Modifier.fillMaxWidth().padding(top=18.dp, bottom=16.dp), verticalAlignment=Alignment.CenterVertically, horizontalArrangement=Arrangement.SpaceBetween) {
                 Column(Modifier.padding(top=8.dp)) {
