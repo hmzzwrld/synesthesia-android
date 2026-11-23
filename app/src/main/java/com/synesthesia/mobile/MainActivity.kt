@@ -264,26 +264,29 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
     var introEyesClosed by remember { mutableStateOf(false) }
     var introEyesAwake by remember { mutableStateOf(false) }
     var introScanActive by remember { mutableStateOf(false) }
+    var introWordmarkVisible by remember { mutableStateOf(false) }
     val introScanProgress by animateFloatAsState(
         targetValue = if (introScanActive) 1f else 0f,
-        animationSpec = tween(durationMillis = 430),
+        animationSpec = tween(durationMillis = 620, easing = androidx.compose.animation.core.LinearEasing),
         label = "mascot-eye-scan"
     )
     var scanMessage by remember { mutableStateOf("Scan your device to find music") }
     LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(120)
+        kotlinx.coroutines.delay(160)
         introStarted = true
-        kotlinx.coroutines.delay(440)
+        kotlinx.coroutines.delay(560)
         introEyesClosed = true
-        kotlinx.coroutines.delay(380)
+        kotlinx.coroutines.delay(520)
         introScanActive = true
-        kotlinx.coroutines.delay(430)
+        kotlinx.coroutines.delay(620)
         introEyesClosed = false
         introEyesAwake = true
-        kotlinx.coroutines.delay(420)
+        kotlinx.coroutines.delay(220)
+        introWordmarkVisible = true
+        kotlinx.coroutines.delay(820)
         introEyesAwake = false
         introScanActive = false
-        kotlinx.coroutines.delay(700)
+        kotlinx.coroutines.delay(520)
         introVisible = false
     }
     var playCounts by remember { mutableStateOf<Map<Long, Int>>(emptyMap()) }
@@ -580,7 +583,7 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                     Box(Modifier.fillMaxSize().background(Ink), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             MascotIntro(
-                                mascotSize = 112.dp,
+                                mascotSize = 184.dp,
                                 hairColor = displayedPalette.first,
                                 eyesClosed = introEyesClosed,
                                 eyesAwake = introEyesAwake,
@@ -588,7 +591,7 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                                 modifier = Modifier.graphicsLayer { scaleX = introScale; scaleY = introScale }
                             )
 
-                            Spacer(Modifier.height(22.dp))
+                            Spacer(Modifier.height(26.dp))
                             Text(
                                 "SYNESTHESIA",
                                 color = White,
@@ -596,7 +599,7 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                                 fontWeight = FontWeight.Black,
                                 letterSpacing = 4.sp,
                                 fontFamily = SynesthesiaUrbanist,
-                                modifier = Modifier.graphicsLayer { alpha = if (introStarted) 1f else 0f }
+                                modifier = Modifier.graphicsLayer { alpha = if (introWordmarkVisible) 1f else 0f }
                                 )
                             Spacer(Modifier.height(7.dp))
                                 Text(
@@ -605,7 +608,7 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                                 fontSize = 9.sp,
                                 letterSpacing = 2.1.sp,
                                 fontFamily = SynesthesiaDmSans,
-                                    modifier = Modifier.graphicsLayer { alpha = if (introStarted) .78f else 0f }
+                                    modifier = Modifier.graphicsLayer { alpha = if (introWordmarkVisible) .78f else 0f }
                                 )
                         }
                     }
