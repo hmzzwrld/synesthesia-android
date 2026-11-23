@@ -175,15 +175,15 @@ private fun MascotMark(size: androidx.compose.ui.unit.Dp, hairColor: Color, modi
 
 @Composable
 private fun MascotIntro(
-    size: androidx.compose.ui.unit.Dp,
+    mascotSize: androidx.compose.ui.unit.Dp,
     hairColor: Color,
     eyesClosed: Boolean,
     eyesAwake: Boolean,
     scanProgress: Float,
     modifier: Modifier = Modifier
 ) {
-    Box(modifier.size(size)) {
-        MascotMark(size, hairColor)
+    Box(modifier.size(mascotSize)) {
+        MascotMark(mascotSize, hairColor)
         if (eyesAwake) {
             Image(
                 painter = painterResource(R.drawable.mascot_eye_mask),
@@ -261,6 +261,14 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
     var scanning by remember { mutableStateOf(false) }
     var introVisible by remember { mutableStateOf(true) }
     var introStarted by remember { mutableStateOf(false) }
+    var introEyesClosed by remember { mutableStateOf(false) }
+    var introEyesAwake by remember { mutableStateOf(false) }
+    var introScanActive by remember { mutableStateOf(false) }
+    val introScanProgress by animateFloatAsState(
+        targetValue = if (introScanActive) 1f else 0f,
+        animationSpec = tween(durationMillis = 430),
+        label = "mascot-eye-scan"
+    )
     var scanMessage by remember { mutableStateOf("Scan your device to find music") }
     LaunchedEffect(Unit) {
         kotlinx.coroutines.delay(120)
