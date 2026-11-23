@@ -439,7 +439,7 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                         verticalArrangement = Arrangement.spacedBy(9.dp)
                     ) {
                         AnimatedVisibility(selected!=null, enter=fadeIn()+slideInVertically { it/3 }, exit=fadeOut()+slideOutVertically { it/3 }) {
-                            MiniPlayer(selected, playing, { if(player.isPlaying) player.pause() else player.play() }, {expandedPlayer=true}, { liquidQueueOpen=true }, glassHaze, displayedPalette, activeAtmosphere, ::chooseAtmosphere)
+                            MiniPlayer(selected, playing, player, { if(player.isPlaying) player.pause() else player.play() }, {expandedPlayer=true}, { liquidQueueOpen=true }, glassHaze, displayedPalette, activeAtmosphere, ::chooseAtmosphere)
                         }
                         // Keep the navigation capsule anchored at the bottom while the floating
                         // Liquid Queue opens above the mini-player.
@@ -565,7 +565,7 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
 @Composable private fun CollectionRow(title:String,subtitle:String,detail:String,art:Uri?,click:()->Unit){ Row(Modifier.fillMaxWidth().animateContentSize(spring(dampingRatio=.86f, stiffness=420f)).clickable(onClick=click).padding(vertical=8.dp),verticalAlignment=Alignment.CenterVertically){Artwork(art,50);Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(title,color=White,fontWeight=FontWeight.SemiBold);Text(subtitle,color=Muted,fontSize=11.sp)};Text(detail,color=Muted,fontSize=10.sp)} }
 @Composable private fun Artwork(uri:Uri?,size:Int){ Box(Modifier.size(size.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF282139)),contentAlignment=Alignment.Center){ if(uri!=null) AsyncImage(uri,null,Modifier.fillMaxSize()) else Icon(Icons.Rounded.Album,null,tint=Lavender,modifier=Modifier.size((size/2).dp)) } }
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
-@Composable private fun MiniPlayer(track:LocalTrack?,playing:Boolean,toggle:()->Unit,expand:()->Unit,openQueue:()->Unit,hazeState:HazeState,ambientPalette:Triple<Color,Color,Color>,activeAtmosphere:String,onAtmosphere:(String)->Unit){
+@Composable private fun MiniPlayer(track:LocalTrack?,playing:Boolean,player:ExoPlayer,toggle:()->Unit,expand:()->Unit,openQueue:()->Unit,hazeState:HazeState,ambientPalette:Triple<Color,Color,Color>,activeAtmosphere:String,onAtmosphere:(String)->Unit){
     if(track==null)return
     val podShape = RoundedCornerShape(999.dp)
     // A short elastic width pulse mirrors the website's springy island expansion.
@@ -619,9 +619,42 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
             .padding(start=13.dp,end=18.dp,top=13.dp,bottom=13.dp),
         verticalAlignment=Alignment.CenterVertically
     ) {
-        Box(Modifier.size(46.dp).border(1.5.dp,Color.White.copy(.23f),CircleShape).padding(3.dp)
-            .clip(CircleShape).background(Color.White.copy(.08f))) {
-            Artwork(track.artwork,40)
+        val rotation = rememberInfiniteTransition(label="mini-artwork-spin").animateFloat(
+            initialValue=0f, targetValue=360f,
+            animationSpec=androidx.compose.animation.core.infiniteRepeatable(
+                animation=tween(9000, easing=androidx.compose.animation.core.LinearEasing)
+            ), label="mini-artwork-rotation"
+        ).value
+        var progress by remember(player) { mutableFloatStateOf(0f) }
+        LaunchedEffect(player) {
+            while (true) {
+                val duration = player.duration
+                progress = if (duration > 0L && duration != androidx.media3.common.C.TIME_UNSET)
+                    (player.currentPosition.toFloat() / duration.toFloat()).coerceIn(0f,1f) else 0f
+                kotlinx.coroutines.delay(180)
+            }
+        }
+        Box(Modifier.size(52.dp), contentAlignment=Alignment.Center) {
+            androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+                val stroke = 2.6.dp.toPx()
+                drawArc(
+                    color=Color.White.copy(.13f), startAngle=-90f, sweepAngle=360f,
+                    useCenter=false, style=androidx.compose.ui.graphics.drawscope.Stroke(width=stroke)
+                )
+                if (progress > 0f) drawArc(
+                    brush=Brush.sweepGradient(listOf(podA,podB,podC,podA)),
+                    startAngle=-90f, sweepAngle=360f*progress,
+                    useCenter=false, style=androidx.compose.ui.graphics.drawscope.Stroke(
+                        width=stroke, cap=androidx.compose.ui.graphics.StrokeCap.Round
+                    )
+                )
+            }
+            Box(Modifier.size(44.dp).border(1.2.dp,Color.White.copy(.22f),CircleShape).padding(2.dp)
+                .clip(CircleShape).background(Color.White.copy(.08f)), contentAlignment=Alignment.Center) {
+                Box(Modifier.size(40.dp).graphicsLayer { rotationZ = if(playing) rotation else 0f }) {
+                    Artwork(track.artwork,40)
+                }
+            }
         }
         Spacer(Modifier.width(10.dp))
         Column(Modifier.width(metaWidth).padding(vertical=1.dp)) {
