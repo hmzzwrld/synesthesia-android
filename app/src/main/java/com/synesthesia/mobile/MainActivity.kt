@@ -157,7 +157,8 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
     var tracks by remember { mutableStateOf<List<LocalTrack>>(emptyList()) }
     var tab by remember { mutableStateOf(Tab.HOME) }
     var libraryTab by remember { mutableStateOf(LibraryTab.SONGS) }
-    var query by remember { mutableStateOf("") }
+    var searchQuery by remember { mutableStateOf("") }
+    var librarySort by remember { mutableStateOf("Name A–Z") }
     var selected by remember { mutableStateOf<LocalTrack?>(null) }
     var playing by remember { mutableStateOf(false) }
     var expandedPlayer by remember { mutableStateOf(false) }
@@ -395,8 +396,8 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                     ) { destination ->
                         when(destination) {
                             Tab.HOME -> HomeScreen(tracks, recentIds, playCounts, monthlyCounts, selected, ::play, {tab=Tab.LIBRARY}, scanMessage)
-                            Tab.SEARCH -> SearchScreen(tracks, query, {query=it}, ::play)
-                            Tab.LIBRARY -> LibraryScreen(tracks, libraryTab, {libraryTab=it}, query, {query=it}, ::play)
+                            Tab.SEARCH -> SearchScreen(tracks, searchQuery, {searchQuery=it}, ::play)
+                            Tab.LIBRARY -> LibraryScreen(tracks, libraryTab, {libraryTab=it}, librarySort, {librarySort=it}, ::play)
                         }
                     }
                 }
@@ -460,16 +461,42 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
 }
 
 @Composable private fun SearchScreen(tracks:List<LocalTrack>, query:String, change:(String)->Unit, play:(LocalTrack)->Unit) {
-    Column { Text("Find your sound",color=White,fontSize=24.sp,fontWeight=FontWeight.Bold,fontFamily=SynesthesiaUrbanist); Spacer(Modifier.height(12.dp)); OutlinedTextField(query,change,Modifier.fillMaxWidth(),placeholder={Text("Search songs, artists, albums…",color=Muted)},leadingIcon={Icon(Icons.Rounded.Search,null,tint=Lavender)},singleLine=true,shape=RoundedCornerShape(20.dp),colors=OutlinedTextFieldDefaults.colors(focusedBorderColor=Lavender,unfocusedBorderColor=Color.White.copy(.16f),focusedTextColor=White,unfocusedTextColor=White)); LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(tracks.filter{query.isBlank() || listOf(it.title,it.artist,it.album).any{s->s.contains(query,true)}}) { TrackRow(it,play) } } }
+    Column { Text("Find your sound",color=White,fontSize=24.sp,fontWeight=FontWeight.Bold,fontFamily=SynesthesiaUrbanist); Spacer(Modifier.height(12.dp)); OutlinedTextField(query,change,Modifier.fillMaxWidth(),placeholder={Text("Search songs, artists, albums…",color=Muted)},leadingIcon={Icon(Icons.Rounded.Search,null,tint=Lavender)},singleLine=true,shape=RoundedCornerShape(20.dp),colors=OutlinedTextFieldDefaults.colors(focusedBorderColor=Lavender,unfocusedBorderColor=Color.White.copy(.16f),focusedTextColor=White,unfocusedTextColor=White)); Spacer(Modifier.height(14.dp)); LazyColumn(contentPadding=PaddingValues(top=2.dp,bottom=190.dp), verticalArrangement=Arrangement.spacedBy(7.dp)) { items(tracks.filter{query.isBlank() || listOf(it.title,it.artist,it.album).any{s->s.contains(query,true)}}) { TrackRow(it,play) } } }
 }
 
-@Composable private fun LibraryScreen(tracks:List<LocalTrack>, selected:LibraryTab, choose:(LibraryTab)->Unit, query:String, change:(String)->Unit, play:(LocalTrack)->Unit) {
-    Column { Text("Your Library",color=White,fontSize=25.sp,fontWeight=FontWeight.Bold,fontFamily=SynesthesiaUrbanist); Spacer(Modifier.height(10.dp)); Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) { LibraryTab.values().forEach { item -> FilterChip(selected==item,{choose(item)},label={Text(item.label,fontSize=11.sp)},colors=FilterChipDefaults.filterChipColors(selectedContainerColor=Violet.copy(.35f),labelColor=Muted,selectedLabelColor=White)) } }; Spacer(Modifier.height(8.dp)); when(selected) {
-        LibraryTab.SONGS -> LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(tracks.filter{query.isBlank()||it.title.contains(query,true)||it.artist.contains(query,true)}){TrackRow(it,play)} }
-        LibraryTab.ALBUMS -> LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(tracks.groupBy{it.album}.toList().sortedBy{it.first}) { (name,songs) -> CollectionRow(name,songs.first().artist,"${songs.size} tracks",songs.first().artwork){songs.firstOrNull()?.let(play)} } }
-        LibraryTab.ARTISTS -> LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(tracks.groupBy{it.artist}.toList().sortedBy{it.first}) { (name,songs) -> CollectionRow(name,"Artist","${songs.size} tracks",songs.first().artwork){songs.firstOrNull()?.let(play)} } }
-        LibraryTab.GENRES -> LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(tracks.groupBy{it.genre}.toList().sortedBy{it.first}) { (name,songs) -> CollectionRow(name,"Genre","${songs.size} tracks",songs.first().artwork){songs.firstOrNull()?.let(play)} } }
-    } }
+@Composable private fun LibraryScreen(tracks:List<LocalTrack>, selected:LibraryTab, choose:(LibraryTab)->Unit, sort:String, changeSort:(String)->Unit, play:(LocalTrack)->Unit) {
+    var sortMenuOpen by remember { mutableStateOf(false) }
+    val sortedTracks = when(sort) {
+        "Name Z–A" -> tracks.sortedByDescending { it.title.lowercase() }
+        "Artist" -> tracks.sortedWith(compareBy<LocalTrack> { it.artist.lowercase() }.thenBy { it.title.lowercase() })
+        else -> tracks.sortedBy { it.title.lowercase() }
+    }
+    Column {
+        Row(Modifier.fillMaxWidth(), verticalAlignment=Alignment.CenterVertically, horizontalArrangement=Arrangement.SpaceBetween) {
+            Text("Your Library",color=White,fontSize=25.sp,fontWeight=FontWeight.Bold,fontFamily=SynesthesiaUrbanist)
+            Box {
+                Row(Modifier.clip(RoundedCornerShape(999.dp)).background(Color.White.copy(.075f)).border(1.dp,Color.White.copy(.14f),RoundedCornerShape(999.dp)).clickable { sortMenuOpen=true }.padding(horizontal=13.dp, vertical=9.dp), verticalAlignment=Alignment.CenterVertically, horizontalArrangement=Arrangement.spacedBy(7.dp)) {
+                    Icon(Icons.Rounded.Sort, null, tint=Lavender, modifier=Modifier.size(17.dp))
+                    Text("Sort", color=White, fontSize=11.sp, fontWeight=FontWeight.SemiBold)
+                    Icon(Icons.Rounded.ExpandMore, null, tint=Muted, modifier=Modifier.size(16.dp))
+                }
+                DropdownMenu(expanded=sortMenuOpen,onDismissRequest={sortMenuOpen=false}) {
+                    listOf("Name A–Z","Name Z–A","Artist").forEach { option ->
+                        DropdownMenuItem(text={Text(option)},onClick={changeSort(option);sortMenuOpen=false},leadingIcon={if(sort==option) Icon(Icons.Rounded.Check,null)})
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) { LibraryTab.values().forEach { item -> FilterChip(selected==item,{choose(item)},label={Text(item.label,fontSize=11.sp)},colors=FilterChipDefaults.filterChipColors(selectedContainerColor=Violet.copy(.35f),labelColor=Muted,selectedLabelColor=White)) } }
+        Spacer(Modifier.height(8.dp))
+        when(selected) {
+            LibraryTab.SONGS -> LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(sortedTracks) { TrackRow(it,play) } }
+            LibraryTab.ALBUMS -> LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(tracks.groupBy{it.album}.toList().let { groups -> if(sort=="Name Z–A") groups.sortedByDescending{it.first.lowercase()} else if(sort=="Artist") groups.sortedWith(compareBy({it.second.firstOrNull()?.artist?.lowercase().orEmpty()},{it.first.lowercase()})) else groups.sortedBy{it.first.lowercase()} }) { (name,songs) -> CollectionRow(name,songs.first().artist,"${songs.size} tracks",songs.first().artwork){songs.firstOrNull()?.let(play)} } }
+            LibraryTab.ARTISTS -> LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(tracks.groupBy{it.artist}.toList().let { groups -> if(sort=="Name Z–A") groups.sortedByDescending{it.first.lowercase()} else groups.sortedBy{it.first.lowercase()} }) { (name,songs) -> CollectionRow(name,"Artist","${songs.size} tracks",songs.first().artwork){songs.firstOrNull()?.let(play)} } }
+            LibraryTab.GENRES -> LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(tracks.groupBy{it.genre}.toList().let { groups -> if(sort=="Name Z–A") groups.sortedByDescending{it.first.lowercase()} else groups.sortedBy{it.first.lowercase()} }) { (name,songs) -> CollectionRow(name,"Genre","${songs.size} tracks",songs.first().artwork){songs.firstOrNull()?.let(play)} } }
+        }
+    }
 }
 
 @Composable private fun TrackRow(track:LocalTrack,onPlay:(LocalTrack)->Unit,plays:Int?=null,rank:Int?=null) {
