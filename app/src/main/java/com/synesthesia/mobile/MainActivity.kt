@@ -284,6 +284,11 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
             consumeOpenPlayerRequest()
         }
     }
+    var atmosphereEnabled by remember { mutableStateOf(appearancePrefs.getBoolean("atmosphere_enabled", true)) }
+    fun setAtmosphereEnabled(enabled: Boolean) {
+        atmosphereEnabled = enabled
+        appearancePrefs.edit().putBoolean("atmosphere_enabled", enabled).apply()
+    }
     var ambientPalette by remember { mutableStateOf(Triple(Color(0xFFA855F7), Color(0xFFEC4899), Color(0xFF6366F1))) }
     var activeAtmosphere by remember { mutableStateOf("album") }
     fun chooseAtmosphere(name: String) {
@@ -362,7 +367,8 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                     )
                 ))
                 // Fine dotted glass mesh from the website, intentionally subtle on mobile.
-                if (GlassPrefs.enabled) androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+                if (!atmosphereEnabled) Box(Modifier.fillMaxSize().background(Color(0xFF050509)))
+                if (GlassPrefs.enabled && atmosphereEnabled) androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
                     val step = 24.dp.toPx()
                     val dot = Color.White.copy(alpha = 0.025f)
                     var y = 0f
@@ -440,7 +446,7 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                     }
                 }
                 if(settingsOpen) {
-                    SettingsScreen(tracks, lightTheme, { lightTheme=it; appearancePrefs.edit().putBoolean("light_theme",it).apply() }, { GlassPrefs.enabled=it; appearancePrefs.edit().putBoolean("glass_enabled",it).apply() }, { settingsOpen=false }, { if(hasPermission) scope.launch { scan() } else launcher.launch(permission) })
+                    SettingsScreen(tracks, lightTheme, { lightTheme=it; appearancePrefs.edit().putBoolean("light_theme",it).apply() }, { GlassPrefs.enabled=it; appearancePrefs.edit().putBoolean("glass_enabled",it).apply() }, atmosphereEnabled, ::setAtmosphereEnabled, { settingsOpen=false }, { if(hasPermission) scope.launch { scan() } else launcher.launch(permission) })
                 }
                 if(equalizerOpen) EqualizerSheet(player.audioSessionId, { equalizerOpen=false })
                 if(!hasPermission) PermissionPrompt { launcher.launch(permission) }
@@ -978,7 +984,7 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
     }
 }
 
-@Composable private fun SettingsScreen(tracks: List<LocalTrack>, lightTheme: Boolean, setLightTheme: (Boolean) -> Unit, setGlass: (Boolean) -> Unit, close: () -> Unit, rescan: () -> Unit) {
+@Composable private fun SettingsScreen(tracks: List<LocalTrack>, lightTheme: Boolean, setLightTheme: (Boolean) -> Unit, setGlass: (Boolean) -> Unit, atmosphereEnabled: Boolean, setAtmosphereEnabled: (Boolean) -> Unit, close: () -> Unit, rescan: () -> Unit) {
     var section by remember { mutableStateOf("Look & Feel") }
     val settingsText = if (lightTheme) Color(0xFF211D2A) else White
     val settingsMuted = if (lightTheme) Color(0xFF625B6D) else Muted
@@ -1017,8 +1023,9 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                             Column(Modifier.fillMaxWidth().padding(start=12.dp, end=12.dp, bottom=12.dp), verticalArrangement=Arrangement.spacedBy(10.dp)) {
                                 when(name) {
                                     "Look & Feel" -> {
-                                        SettingsCard(lightTheme, "Atmosphere", "Album-reactive colours") {
-                                            Text("Album artwork colours are used automatically. Use the atmosphere controls on the mini-player to switch palettes.", color=settingsMuted, fontSize=13.sp)
+                                        SettingsCard(lightTheme, "Atmosphere", if(atmosphereEnabled) "Album-reactive background is on" else "Deep dark background is on") {
+                                            Text("Choose whether album colours flow through the app background. Your SYNESTHESIA identity accents stay coloured either way.", color=settingsMuted, fontSize=13.sp)
+                                            SettingsSwitch("Atmosphere", atmosphereEnabled, lightTheme, setAtmosphereEnabled)
                                         }
                                         SettingsCard(lightTheme, "Appearance", "SYNESTHESIA liquid glass") {
                                             Text("Choose your interface theme", color=settingsMuted, fontSize=13.sp)
