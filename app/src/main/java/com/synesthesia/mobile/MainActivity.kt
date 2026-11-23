@@ -504,48 +504,45 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                 }
                 if(equalizerOpen) EqualizerSheet(player.audioSessionId, { equalizerOpen=false })
                 if(!hasPermission) PermissionPrompt { launcher.launch(permission) }
-                if (introVisible) {
-                    val introScale by animateFloatAsState(
+                val introScale by animateFloatAsState(
                         targetValue = if (introStarted) 1f else .78f,
                         animationSpec = tween(520, easing = androidx.compose.animation.core.FastOutSlowInEasing),
                         label = "brand-intro-scale"
                     )
-                    AnimatedVisibility(
-                        visible = introVisible,
-                        enter = fadeIn(tween(100)),
-                        exit = fadeOut(tween(240)),
-                        modifier = Modifier.fillMaxSize().zIndex(30f)
-                    ) {
-                        Box(Modifier.fillMaxSize().background(Ink), contentAlignment = Alignment.Center) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                FrequencyMark(
-                                    92.dp,
-                                    listOf(displayedPalette.first, displayedPalette.second, displayedPalette.third),
-                                    Modifier.graphicsLayer { scaleX = introScale; scaleY = introScale }
+                AnimatedVisibility(
+                    visible = introVisible,
+                    enter = fadeIn(tween(100)),
+                    exit = fadeOut(tween(240)),
+                    modifier = Modifier.fillMaxSize().zIndex(30f)
+                ) {
+                    Box(Modifier.fillMaxSize().background(Ink), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            FrequencyMark(
+                                92.dp,
+                                listOf(displayedPalette.first, displayedPalette.second, displayedPalette.third),
+                                Modifier.graphicsLayer { scaleX = introScale; scaleY = introScale }
+                            )
+                            Spacer(Modifier.height(22.dp))
+                            Text(
+                                "SYNESTHESIA",
+                                color = White,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 4.sp,
+                                fontFamily = SynesthesiaUrbanist,
+                                modifier = Modifier.graphicsLayer { alpha = if (introStarted) 1f else 0f }
                                 )
-                                Spacer(Modifier.height(22.dp))
+                            Spacer(Modifier.height(7.dp))
                                 Text(
-                                    "SYNESTHESIA",
-                                    color = White,
-                                    fontSize = 22.sp,
-                                    fontWeight = FontWeight.Black,
-                                    letterSpacing = 4.sp,
-                                    fontFamily = SynesthesiaUrbanist,
-                                    modifier = Modifier.graphicsLayer { alpha = if (introStarted) 1f else 0f }
-                                )
-                                Spacer(Modifier.height(7.dp))
-                                Text(
-                                    "YOUR SOUND. YOUR WORLD.",
-                                    color = Muted,
-                                    fontSize = 9.sp,
-                                    letterSpacing = 2.1.sp,
-                                    fontFamily = SynesthesiaDmSans,
+                                "YOUR SOUND. YOUR WORLD.",
+                                color = Muted,
+                                fontSize = 9.sp,
+                                letterSpacing = 2.1.sp,
+                                fontFamily = SynesthesiaDmSans,
                                     modifier = Modifier.graphicsLayer { alpha = if (introStarted) .78f else 0f }
                                 )
-                            }
                         }
                     }
-                }
             }
         }
     }
