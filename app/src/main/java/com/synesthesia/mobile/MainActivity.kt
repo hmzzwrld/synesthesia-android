@@ -179,9 +179,10 @@ private fun MascotIntro(
     hairColor: Color,
     eyesClosed: Boolean,
     eyesAwake: Boolean,
-    scanProgress: Float
+    scanProgress: Float,
+    modifier: Modifier = Modifier
 ) {
-    Box(Modifier.size(size)) {
+    Box(modifier.size(size)) {
         MascotMark(size, hairColor)
         if (eyesAwake) {
             Image(
@@ -575,7 +576,8 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                                 hairColor = displayedPalette.first,
                                 eyesClosed = introEyesClosed,
                                 eyesAwake = introEyesAwake,
-                                scanProgress = introScanProgress
+                                scanProgress = introScanProgress,
+                                modifier = Modifier.graphicsLayer { scaleX = introScale; scaleY = introScale }
                             )
 
                             Spacer(Modifier.height(22.dp))
