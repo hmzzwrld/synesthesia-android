@@ -580,7 +580,7 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                     Box(Modifier.fillMaxSize().background(Ink), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             MascotIntro(
-                                size = 112.dp,
+                                mascotSize = 112.dp,
                                 hairColor = displayedPalette.first,
                                 eyesClosed = introEyesClosed,
                                 eyesAwake = introEyesAwake,
