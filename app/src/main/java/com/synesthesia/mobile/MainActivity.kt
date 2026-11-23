@@ -619,7 +619,7 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
             .padding(start=13.dp,end=18.dp,top=13.dp,bottom=13.dp),
         verticalAlignment=Alignment.CenterVertically
     ) {
-        val rotation = rememberInfiniteTransition(label="mini-artwork-spin").animateFloat(
+        val rotation = androidx.compose.animation.core.rememberInfiniteTransition(label="mini-artwork-spin").animateFloat(
             initialValue=0f, targetValue=360f,
             animationSpec=androidx.compose.animation.core.infiniteRepeatable(
                 animation=tween(9000, easing=androidx.compose.animation.core.LinearEasing)
