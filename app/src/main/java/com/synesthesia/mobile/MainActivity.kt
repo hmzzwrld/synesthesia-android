@@ -155,6 +155,48 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
+private fun FrequencyMark(size: androidx.compose.ui.unit.Dp, colors: List<Color>, modifier: Modifier = Modifier) {
+    androidx.compose.foundation.Canvas(modifier.size(size)) {
+        val w = this.size.width
+        val h = this.size.height
+        val stroke = w * .075f
+        val paths = listOf(
+            androidx.compose.ui.graphics.Path().apply {
+                moveTo(w * .09f, h * .28f)
+                cubicTo(w * .27f, h * .04f, w * .39f, h * .88f, w * .56f, h * .51f)
+                cubicTo(w * .70f, h * .22f, w * .79f, h * .13f, w * .91f, h * .34f)
+            },
+            androidx.compose.ui.graphics.Path().apply {
+                moveTo(w * .09f, h * .50f)
+                cubicTo(w * .27f, h * .27f, w * .39f, h * .80f, w * .56f, h * .50f)
+                cubicTo(w * .70f, h * .24f, w * .79f, h * .28f, w * .91f, h * .50f)
+            },
+            androidx.compose.ui.graphics.Path().apply {
+                moveTo(w * .09f, h * .72f)
+                cubicTo(w * .27f, h * .49f, w * .39f, h * .95f, w * .56f, h * .49f)
+                cubicTo(w * .70f, h * .14f, w * .79f, h * .48f, w * .91f, h * .69f)
+            }
+        )
+        val logoBrush = Brush.linearGradient(
+            colors = colors,
+            start = androidx.compose.ui.geometry.Offset(0f, 0f),
+            end = androidx.compose.ui.geometry.Offset(w, h)
+        )
+        paths.forEach { path ->
+            drawPath(
+                path = path,
+                brush = logoBrush,
+                style = androidx.compose.ui.graphics.drawscope.Stroke(
+                    width = stroke,
+                    cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                    join = androidx.compose.ui.graphics.StrokeJoin.Round
+                )
+            )
+        }
+    }
+}
+
+@Composable
 private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consumeOpenPlayerRequest: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
@@ -173,7 +215,15 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
     var equalizerOpen by remember { mutableStateOf(false) }
     var liquidQueueOpen by remember { mutableStateOf(false) }
     var scanning by remember { mutableStateOf(false) }
+    var introVisible by remember { mutableStateOf(true) }
+    var introStarted by remember { mutableStateOf(false) }
     var scanMessage by remember { mutableStateOf("Scan your device to find music") }
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(45)
+        introStarted = true
+        kotlinx.coroutines.delay(690)
+        introVisible = false
+    }
     var playCounts by remember { mutableStateOf<Map<Long, Int>>(emptyMap()) }
     var recentIds by remember { mutableStateOf<List<Long>>(emptyList()) }
     var monthlyCounts by remember { mutableStateOf<Map<Long, Int>>(emptyMap()) }
@@ -384,14 +434,17 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                 }
                 Column(Modifier.fillMaxSize().systemBarsPadding().padding(horizontal=16.dp)) {
                     Row(Modifier.fillMaxWidth().padding(top=12.dp,bottom=14.dp), verticalAlignment=Alignment.CenterVertically, horizontalArrangement=Arrangement.SpaceBetween) {
-                        Column {
-                            Text("SYNESTHESIA", color=White, fontSize=17.sp, fontWeight=FontWeight.Black, letterSpacing=3.sp, fontFamily=SynesthesiaUrbanist)
-                            Row(verticalAlignment=Alignment.CenterVertically) {
-                                Text("YOUR SOUND.", color=Muted, fontSize=9.sp, letterSpacing=2.sp, fontFamily=SynesthesiaDmSans)
-                                Spacer(Modifier.width(4.dp))
-                                Text("YOUR WORLD.", fontSize=9.sp, letterSpacing=2.sp, fontWeight=FontWeight.SemiBold,
-                                    fontFamily=SynesthesiaDmSans,
-                                    style=TextStyle(brush=Brush.linearGradient(listOf(displayedPalette.first, displayedPalette.second, displayedPalette.third))))
+                        Row(verticalAlignment=Alignment.CenterVertically, horizontalArrangement=Arrangement.spacedBy(9.dp)) {
+                            FrequencyMark(27.dp, listOf(displayedPalette.first, displayedPalette.second, displayedPalette.third))
+                            Column {
+                                Text("SYNESTHESIA", color=White, fontSize=17.sp, fontWeight=FontWeight.Black, letterSpacing=3.sp, fontFamily=SynesthesiaUrbanist)
+                                Row(verticalAlignment=Alignment.CenterVertically) {
+                                    Text("YOUR SOUND.", color=Muted, fontSize=9.sp, letterSpacing=2.sp, fontFamily=SynesthesiaDmSans)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("YOUR WORLD.", fontSize=9.sp, letterSpacing=2.sp, fontWeight=FontWeight.SemiBold,
+                                        fontFamily=SynesthesiaDmSans,
+                                        style=TextStyle(brush=Brush.linearGradient(listOf(displayedPalette.first, displayedPalette.second, displayedPalette.third))))
+                                }
                             }
                         }
                         IconButton(onClick={ settingsOpen = true }) {
@@ -451,7 +504,48 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                 }
                 if(equalizerOpen) EqualizerSheet(player.audioSessionId, { equalizerOpen=false })
                 if(!hasPermission) PermissionPrompt { launcher.launch(permission) }
-                if(scanning) Box(Modifier.fillMaxSize().background(Color.Black.copy(.35f)), contentAlignment=Alignment.Center) { CircularProgressIndicator(color=ambientPalette.first) }
+                if (introVisible) {
+                    val introScale by animateFloatAsState(
+                        targetValue = if (introStarted) 1f else .78f,
+                        animationSpec = tween(520, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+                        label = "brand-intro-scale"
+                    )
+                    AnimatedVisibility(
+                        visible = introVisible,
+                        enter = fadeIn(tween(100)),
+                        exit = fadeOut(tween(240)),
+                        modifier = Modifier.fillMaxSize().zIndex(30f)
+                    ) {
+                        Box(Modifier.fillMaxSize().background(Ink), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                FrequencyMark(
+                                    92.dp,
+                                    listOf(displayedPalette.first, displayedPalette.second, displayedPalette.third),
+                                    Modifier.graphicsLayer { scaleX = introScale; scaleY = introScale }
+                                )
+                                Spacer(Modifier.height(22.dp))
+                                Text(
+                                    "SYNESTHESIA",
+                                    color = White,
+                                    fontSize = 22.sp,
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = 4.sp,
+                                    fontFamily = SynesthesiaUrbanist,
+                                    modifier = Modifier.graphicsLayer { alpha = if (introStarted) 1f else 0f }
+                                )
+                                Spacer(Modifier.height(7.dp))
+                                Text(
+                                    "YOUR SOUND. YOUR WORLD.",
+                                    color = Muted,
+                                    fontSize = 9.sp,
+                                    letterSpacing = 2.1.sp,
+                                    fontFamily = SynesthesiaDmSans,
+                                    modifier = Modifier.graphicsLayer { alpha = if (introStarted) .78f else 0f }
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }
