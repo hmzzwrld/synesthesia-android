@@ -52,6 +52,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
@@ -102,7 +103,7 @@ private val Lavender = Color(0xFFC4A8FF)
 private val White = Color(0xFFF4F0FF)
 private val Muted = Color(0xFFAAA2BE)
 
-data class LocalTrack(val id: Long, val title: String, val artist: String, val album: String, val uri: Uri, val artwork: Uri?, val duration: Long, val genre: String, val path: String)
+data class LocalTrack(val id: Long, val title: String, val artist: String, val album: String, val uri: Uri, val artwork: Uri?, val duration: Long, val genre: String, val path: String, val dateAdded: Long)
 private enum class Tab(val label: String) { HOME("Home"), SEARCH("Search"), LIBRARY("Library") }
 private enum class LibraryTab(val label: String) { SONGS("Songs"), ALBUMS("Albums"), ARTISTS("Artists"), GENRES("Genres") }
 
@@ -232,10 +233,10 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
         val result = withContext(Dispatchers.IO) {
             val list = mutableListOf<LocalTrack>()
             val collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
-            val projection = arrayOf(MediaStore.Audio.Media._ID, MediaStore.Audio.Media.TITLE, MediaStore.Audio.Media.ARTIST, MediaStore.Audio.Media.ALBUM, MediaStore.Audio.Media.DURATION, MediaStore.Audio.Media.DATA, MediaStore.Audio.Media.ALBUM_ID)
+            val projection = arrayOf(MediaStore.Audio.Media._ID, MediaStore.Audio.Media.TITLE, MediaStore.Audio.Media.ARTIST, MediaStore.Audio.Media.ALBUM, MediaStore.Audio.Media.DURATION, MediaStore.Audio.Media.DATA, MediaStore.Audio.Media.ALBUM_ID, MediaStore.Audio.Media.DATE_ADDED)
             val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
             context.contentResolver.query(collection, projection, selection, null, "${MediaStore.Audio.Media.TITLE} COLLATE NOCASE ASC")?.use { c ->
-                val idC=c.getColumnIndexOrThrow(MediaStore.Audio.Media._ID); val titleC=c.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE); val artistC=c.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST); val albumC=c.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM); val durC=c.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION); val dataC=c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA); val albumIdC=c.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
+                val idC=c.getColumnIndexOrThrow(MediaStore.Audio.Media._ID); val titleC=c.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE); val artistC=c.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST); val albumC=c.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM); val durC=c.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION); val dataC=c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA); val albumIdC=c.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID); val addedC=c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
                 while(c.moveToNext()) {
                     val id=c.getLong(idC); val albumId=c.getLong(albumIdC); val uri=ContentUris.withAppendedId(collection,id)
                     val art=ContentUris.withAppendedId(Uri.parse("content://media/external/audio/albumart"),albumId)
@@ -244,7 +245,7 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                         try { retriever.setDataSource(context, uri); retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_GENRE)?.takeIf { it.isNotBlank() } ?: "Unknown genre" }
                         finally { retriever.release() }
                     }.getOrDefault("Unknown genre")
-                    list.add(LocalTrack(id,c.getString(titleC)?:"Unknown title",c.getString(artistC)?.takeIf{it!="<unknown>"}?:"Unknown artist",c.getString(albumC)?.takeIf{it!="<unknown>"}?:"Unknown album",uri,art,c.getLong(durC),genre,c.getString(dataC)?:""))
+                    list.add(LocalTrack(id,c.getString(titleC)?:"Unknown title",c.getString(artistC)?.takeIf{it!="<unknown>"}?:"Unknown artist",c.getString(albumC)?.takeIf{it!="<unknown>"}?:"Unknown album",uri,art,c.getLong(durC),genre,c.getString(dataC)?:"",c.getLong(addedC)))
                 }
             }; list
         }
@@ -397,7 +398,7 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                         when(destination) {
                             Tab.HOME -> HomeScreen(tracks, recentIds, playCounts, monthlyCounts, selected, ::play, {tab=Tab.LIBRARY}, scanMessage)
                             Tab.SEARCH -> SearchScreen(tracks, searchQuery, {searchQuery=it}, ::play)
-                            Tab.LIBRARY -> LibraryScreen(tracks, libraryTab, {libraryTab=it}, librarySort, {librarySort=it}, ::play)
+                            Tab.LIBRARY -> LibraryScreen(tracks, libraryTab, {libraryTab=it}, librarySort, {librarySort=it}, recentIds, glassHaze, ::play)
                         }
                     }
                 }
@@ -464,10 +465,14 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
     Column { Text("Find your sound",color=White,fontSize=24.sp,fontWeight=FontWeight.Bold,fontFamily=SynesthesiaUrbanist); Spacer(Modifier.height(12.dp)); OutlinedTextField(query,change,Modifier.fillMaxWidth(),placeholder={Text("Search songs, artists, albums…",color=Muted)},leadingIcon={Icon(Icons.Rounded.Search,null,tint=Lavender)},singleLine=true,shape=RoundedCornerShape(20.dp),colors=OutlinedTextFieldDefaults.colors(focusedBorderColor=Lavender,unfocusedBorderColor=Color.White.copy(.16f),focusedTextColor=White,unfocusedTextColor=White)); Spacer(Modifier.height(14.dp)); LazyColumn(contentPadding=PaddingValues(top=2.dp,bottom=190.dp), verticalArrangement=Arrangement.spacedBy(7.dp)) { items(tracks.filter{query.isBlank() || listOf(it.title,it.artist,it.album).any{s->s.contains(query,true)}}) { TrackRow(it,play) } } }
 }
 
-@Composable private fun LibraryScreen(tracks:List<LocalTrack>, selected:LibraryTab, choose:(LibraryTab)->Unit, sort:String, changeSort:(String)->Unit, play:(LocalTrack)->Unit) {
+@Composable private fun LibraryScreen(tracks:List<LocalTrack>, selected:LibraryTab, choose:(LibraryTab)->Unit, sort:String, changeSort:(String)->Unit, recentIds:List<Long>, hazeState:HazeState, play:(LocalTrack)->Unit) {
     var sortMenuOpen by remember { mutableStateOf(false) }
+    val sortOptions = listOf("Name A–Z","Name Z–A","Recently added","Recently played","Album","Artist")
     val sortedTracks = when(sort) {
         "Name Z–A" -> tracks.sortedByDescending { it.title.lowercase() }
+        "Recently added" -> tracks.sortedByDescending { it.dateAdded }
+        "Recently played" -> recentIds.mapNotNull { id -> tracks.firstOrNull { it.id==id } } + tracks.filterNot { t -> recentIds.contains(t.id) }.sortedBy { it.title.lowercase() }
+        "Album" -> tracks.sortedWith(compareBy<LocalTrack> { it.album.lowercase() }.thenBy { it.title.lowercase() })
         "Artist" -> tracks.sortedWith(compareBy<LocalTrack> { it.artist.lowercase() }.thenBy { it.title.lowercase() })
         else -> tracks.sortedBy { it.title.lowercase() }
     }
@@ -475,14 +480,41 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
         Row(Modifier.fillMaxWidth(), verticalAlignment=Alignment.CenterVertically, horizontalArrangement=Arrangement.SpaceBetween) {
             Text("Your Library",color=White,fontSize=25.sp,fontWeight=FontWeight.Bold,fontFamily=SynesthesiaUrbanist)
             Box {
-                Row(Modifier.clip(RoundedCornerShape(999.dp)).background(Color.White.copy(.075f)).border(1.dp,Color.White.copy(.14f),RoundedCornerShape(999.dp)).clickable { sortMenuOpen=true }.padding(horizontal=13.dp, vertical=9.dp), verticalAlignment=Alignment.CenterVertically, horizontalArrangement=Arrangement.spacedBy(7.dp)) {
-                    Icon(Icons.Rounded.Sort, null, tint=Lavender, modifier=Modifier.size(17.dp))
+                Row(Modifier.clip(RoundedCornerShape(999.dp))
+                    .glassOnly { shadow(12.dp,RoundedCornerShape(999.dp),ambientColor=Lavender.copy(.16f)) }
+                    .background(if(GlassPrefs.enabled) Color.White.copy(.075f) else Color(0xFF191824))
+                    .border(1.dp,if(GlassPrefs.enabled) Color.White.copy(.18f) else Color.White.copy(.08f),RoundedCornerShape(999.dp))
+                    .clickable { sortMenuOpen=!sortMenuOpen }
+                    .padding(horizontal=14.dp, vertical=10.dp), verticalAlignment=Alignment.CenterVertically, horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Rounded.Tune, null, tint=Lavender, modifier=Modifier.size(17.dp))
                     Text("Sort", color=White, fontSize=11.sp, fontWeight=FontWeight.SemiBold)
-                    Icon(Icons.Rounded.ExpandMore, null, tint=Muted, modifier=Modifier.size(16.dp))
+                    Icon(if(sortMenuOpen) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null, tint=Muted, modifier=Modifier.size(16.dp))
                 }
-                DropdownMenu(expanded=sortMenuOpen,onDismissRequest={sortMenuOpen=false}) {
-                    listOf("Name A–Z","Name Z–A","Artist").forEach { option ->
-                        DropdownMenuItem(text={Text(option)},onClick={changeSort(option);sortMenuOpen=false},leadingIcon={if(sort==option) Icon(Icons.Rounded.Check,null)})
+                androidx.compose.animation.AnimatedVisibility(
+                    visible=sortMenuOpen,
+                    modifier=Modifier.align(Alignment.TopEnd).offset(y=48.dp).zIndex(3f),
+                    enter=fadeIn(tween(150))+scaleIn(initialScale=.92f,animationSpec=spring(dampingRatio=.78f,stiffness=420f))+slideInVertically(tween(170)){-it/12},
+                    exit=fadeOut(tween(110))+scaleOut(targetScale=.96f,tween(120))
+                ) {
+                    Column(Modifier.width(214.dp).glassOnly { shadow(22.dp,RoundedCornerShape(28.dp),ambientColor=Lavender.copy(.18f)) }
+                        .clip(RoundedCornerShape(28.dp))
+                        .glassBackdrop(hazeState,22.dp,0.012f)
+                        .background(if(GlassPrefs.enabled) Brush.linearGradient(listOf(Color.White.copy(.17f),Color(0xFF171522).copy(.80f),Color(0xFF171522).copy(.92f))) else Color(0xFF191824))
+                        .border(1.dp,if(GlassPrefs.enabled) Brush.verticalGradient(listOf(Color.White.copy(.34f),Lavender.copy(.16f),Color.White.copy(.07f))) else Brush.verticalGradient(listOf(Color.White.copy(.12f),Color.White.copy(.05f))),RoundedCornerShape(28.dp))
+                        .padding(9.dp), verticalArrangement=Arrangement.spacedBy(3.dp)) {
+                        Text("ARRANGE BY",color=Lavender,fontSize=9.sp,letterSpacing=1.8.sp,fontWeight=FontWeight.Bold,modifier=Modifier.padding(start=12.dp,top=8.dp,bottom=5.dp))
+                        sortOptions.forEach { option ->
+                            val active=sort==option
+                            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(17.dp))
+                                .background(if(active) (if(GlassPrefs.enabled) Lavender.copy(.19f) else Violet.copy(.30f)) else Color.Transparent)
+                                .clickable { changeSort(option); sortMenuOpen=false }
+                                .padding(horizontal=12.dp,vertical=11.dp),verticalAlignment=Alignment.CenterVertically) {
+                                Icon(when(option) { "Recently added"->Icons.Rounded.Schedule; "Recently played"->Icons.Rounded.History; "Album"->Icons.Rounded.Album; "Artist"->Icons.Rounded.Person; else->Icons.Rounded.SortByAlpha },null,tint=if(active) Lavender else Muted,modifier=Modifier.size(17.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Text(option,color=if(active) White else Muted,fontSize=12.sp,fontWeight=if(active) FontWeight.SemiBold else FontWeight.Medium,modifier=Modifier.weight(1f))
+                                if(active) Icon(Icons.Rounded.Check,null,tint=Lavender,modifier=Modifier.size(16.dp))
+                            }
+                        }
                     }
                 }
             }
@@ -492,7 +524,7 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
         Spacer(Modifier.height(8.dp))
         when(selected) {
             LibraryTab.SONGS -> LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(sortedTracks) { TrackRow(it,play) } }
-            LibraryTab.ALBUMS -> LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(tracks.groupBy{it.album}.toList().let { groups -> if(sort=="Name Z–A") groups.sortedByDescending{it.first.lowercase()} else if(sort=="Artist") groups.sortedWith(compareBy({it.second.firstOrNull()?.artist?.lowercase().orEmpty()},{it.first.lowercase()})) else groups.sortedBy{it.first.lowercase()} }) { (name,songs) -> CollectionRow(name,songs.first().artist,"${songs.size} tracks",songs.first().artwork){songs.firstOrNull()?.let(play)} } }
+            LibraryTab.ALBUMS -> LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(tracks.groupBy{it.album}.toList().let { groups -> when(sort) { "Name Z–A" -> groups.sortedByDescending{it.first.lowercase()}; "Artist" -> groups.sortedWith(compareBy({it.second.firstOrNull()?.artist?.lowercase().orEmpty()},{it.first.lowercase()})); "Recently added" -> groups.sortedByDescending{it.second.maxOfOrNull { t->t.dateAdded }?:0L}; else -> groups.sortedBy{it.first.lowercase()} } }) { (name,songs) -> CollectionRow(name,songs.first().artist,"${songs.size} tracks",songs.first().artwork){songs.firstOrNull()?.let(play)} } }
             LibraryTab.ARTISTS -> LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(tracks.groupBy{it.artist}.toList().let { groups -> if(sort=="Name Z–A") groups.sortedByDescending{it.first.lowercase()} else groups.sortedBy{it.first.lowercase()} }) { (name,songs) -> CollectionRow(name,"Artist","${songs.size} tracks",songs.first().artwork){songs.firstOrNull()?.let(play)} } }
             LibraryTab.GENRES -> LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(tracks.groupBy{it.genre}.toList().let { groups -> if(sort=="Name Z–A") groups.sortedByDescending{it.first.lowercase()} else groups.sortedBy{it.first.lowercase()} }) { (name,songs) -> CollectionRow(name,"Genre","${songs.size} tracks",songs.first().artwork){songs.firstOrNull()?.let(play)} } }
         }
