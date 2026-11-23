@@ -494,12 +494,12 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                     visible=sortMenuOpen,
                     modifier=Modifier.align(Alignment.TopEnd).offset(y=48.dp).zIndex(3f),
                     enter=fadeIn(tween(150))+scaleIn(initialScale=.92f,animationSpec=spring(dampingRatio=.78f,stiffness=420f))+slideInVertically(tween(170)){-it/12},
-                    exit=fadeOut(tween(110))+scaleOut(targetScale=.96f,tween(120))
+                    exit=fadeOut(tween(110))+scaleOut(targetScale=.96f, animationSpec=tween(120))
                 ) {
                     Column(Modifier.width(214.dp).glassOnly { shadow(22.dp,RoundedCornerShape(28.dp),ambientColor=Lavender.copy(.18f)) }
                         .clip(RoundedCornerShape(28.dp))
                         .glassBackdrop(hazeState,22.dp,0.012f)
-                        .glassOnly { background(Brush.linearGradient(listOf(Color.White.copy(.17f),Color(0xFF171522).copy(.80f),Color(0xFF171522).copy(.92f)))) }
+                        .then(if (GlassPrefs.enabled) Modifier.background(brush = Brush.linearGradient(listOf(Color.White.copy(.17f),Color(0xFF171522).copy(.80f),Color(0xFF171522).copy(.92f)))) else Modifier)
                         .border(1.dp,if(GlassPrefs.enabled) Brush.verticalGradient(listOf(Color.White.copy(.34f),Lavender.copy(.16f),Color.White.copy(.07f))) else Brush.verticalGradient(listOf(Color.White.copy(.12f),Color.White.copy(.05f))),RoundedCornerShape(28.dp))
                         .padding(9.dp), verticalArrangement=Arrangement.spacedBy(3.dp)) {
                         Text("ARRANGE BY",color=Lavender,fontSize=9.sp,letterSpacing=1.8.sp,fontWeight=FontWeight.Bold,modifier=Modifier.padding(start=12.dp,top=8.dp,bottom=5.dp))
