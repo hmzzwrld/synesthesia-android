@@ -479,32 +479,38 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
     Column {
         Row(Modifier.fillMaxWidth(), verticalAlignment=Alignment.CenterVertically, horizontalArrangement=Arrangement.SpaceBetween) {
             Text("Your Library",color=White,fontSize=25.sp,fontWeight=FontWeight.Bold,fontFamily=SynesthesiaUrbanist)
-            Box {
-                Row(Modifier.clip(RoundedCornerShape(999.dp))
-                    .glassOnly { shadow(12.dp,RoundedCornerShape(999.dp),ambientColor=Lavender.copy(.16f)) }
-                    .background(if(GlassPrefs.enabled) Color.White.copy(.075f) else Color(0xFF191824))
-                    .border(1.dp,if(GlassPrefs.enabled) Color.White.copy(.18f) else Color.White.copy(.08f),RoundedCornerShape(999.dp))
-                    .clickable { sortMenuOpen=!sortMenuOpen }
-                    .padding(horizontal=14.dp, vertical=10.dp), verticalAlignment=Alignment.CenterVertically, horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Rounded.Tune, null, tint=Lavender, modifier=Modifier.size(17.dp))
-                    Text("Sort", color=White, fontSize=11.sp, fontWeight=FontWeight.SemiBold)
-                    Icon(if(sortMenuOpen) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null, tint=Muted, modifier=Modifier.size(16.dp))
-                }
-                androidx.compose.animation.AnimatedVisibility(
-                    visible=sortMenuOpen,
-                    modifier=Modifier.align(Alignment.TopEnd).offset(y=48.dp).zIndex(3f),
-                    enter=fadeIn(tween(150))+scaleIn(initialScale=.92f,animationSpec=spring(dampingRatio=.78f,stiffness=420f))+slideInVertically(tween(170)){-it/12},
-                    exit=fadeOut(tween(110))+scaleOut(targetScale=.96f, animationSpec=tween(120))
-                ) {
-                    Column(Modifier.width(214.dp).glassOnly { shadow(22.dp,RoundedCornerShape(28.dp),ambientColor=Lavender.copy(.18f)) }
-                        .clip(RoundedCornerShape(28.dp))
-                        .glassBackdrop(hazeState,22.dp,0.012f)
-                        .then(if (GlassPrefs.enabled) Modifier.background(brush = Brush.linearGradient(listOf(Color.White.copy(.17f),Color(0xFF171522).copy(.80f),Color(0xFF171522).copy(.92f)))) else Modifier)
-                        .border(1.dp,if(GlassPrefs.enabled) Brush.verticalGradient(listOf(Color.White.copy(.34f),Lavender.copy(.16f),Color.White.copy(.07f))) else Brush.verticalGradient(listOf(Color.White.copy(.12f),Color.White.copy(.05f))),RoundedCornerShape(28.dp))
-                        .padding(9.dp), verticalArrangement=Arrangement.spacedBy(3.dp)) {
-                        Text("ARRANGE BY",color=Lavender,fontSize=9.sp,letterSpacing=1.8.sp,fontWeight=FontWeight.Bold,modifier=Modifier.padding(start=12.dp,top=8.dp,bottom=5.dp))
-                        sortOptions.forEach { option ->
-                            val active=sort==option
+            Row(Modifier.clip(RoundedCornerShape(999.dp))
+                .glassOnly { shadow(12.dp,RoundedCornerShape(999.dp),ambientColor=Lavender.copy(.16f)) }
+                .background(if(GlassPrefs.enabled) Color.White.copy(.075f) else Color(0xFF191824))
+                .then(if(GlassPrefs.enabled) Modifier.border(1.dp,Color.White.copy(.18f),RoundedCornerShape(999.dp)) else Modifier)
+                .clickable { sortMenuOpen=!sortMenuOpen }
+                .padding(horizontal=14.dp, vertical=10.dp), verticalAlignment=Alignment.CenterVertically, horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Rounded.Tune, null, tint=Lavender, modifier=Modifier.size(17.dp))
+                Text("Sort", color=White, fontSize=11.sp, fontWeight=FontWeight.SemiBold)
+                Icon(if(sortMenuOpen) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null, tint=Muted, modifier=Modifier.size(16.dp))
+            }
+        }
+        androidx.compose.animation.AnimatedVisibility(
+            visible=sortMenuOpen,
+            modifier=Modifier.fillMaxWidth(),
+            enter=expandVertically(animationSpec=tween(240))+fadeIn(tween(160)),
+            exit=shrinkVertically(animationSpec=tween(180))+fadeOut(tween(110))
+        ) {
+            Box(Modifier.fillMaxWidth(), contentAlignment=Alignment.CenterEnd) {
+                Column(Modifier.widthIn(max=260.dp).fillMaxWidth()
+                    .glassOnly { shadow(22.dp,RoundedCornerShape(26.dp),ambientColor=Lavender.copy(.18f)) }
+                    .clip(RoundedCornerShape(26.dp))
+                    .glassBackdrop(hazeState,22.dp,0.012f)
+                    .then(if(GlassPrefs.enabled) Modifier.background(Brush.linearGradient(listOf(Color.White.copy(.17f),Color(0xFF171522).copy(.80f),Color(0xFF171522).copy(.92f)))) else Modifier.background(Color(0xFF181624)))
+                    .then(if(GlassPrefs.enabled) Modifier.border(1.dp,Brush.verticalGradient(listOf(Color.White.copy(.34f),Lavender.copy(.16f),Color.White.copy(.07f))),RoundedCornerShape(26.dp)) else Modifier)
+                    .padding(9.dp), verticalArrangement=Arrangement.spacedBy(3.dp)) {
+                    Text("ARRANGE BY",color=Lavender,fontSize=9.sp,letterSpacing=1.8.sp,fontWeight=FontWeight.Bold,modifier=Modifier.padding(start=12.dp,top=8.dp,bottom=5.dp))
+                    sortOptions.forEachIndexed { index, option ->
+                        val active=sort==option
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible=sortMenuOpen,
+                            enter=fadeIn(tween(170,delayMillis=55+index*48))+slideInVertically(tween(210,delayMillis=55+index*48)){ it/4 }
+                        ) {
                             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(17.dp))
                                 .background(if(active) (if(GlassPrefs.enabled) Lavender.copy(.19f) else Violet.copy(.30f)) else Color.Transparent)
                                 .clickable { changeSort(option); sortMenuOpen=false }
@@ -533,18 +539,16 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
 
 @Composable private fun TrackRow(track:LocalTrack,onPlay:(LocalTrack)->Unit,plays:Int?=null,rank:Int?=null) {
     Row(Modifier.fillMaxWidth().animateContentSize(spring(dampingRatio=.86f, stiffness=420f)).clip(RoundedCornerShape(19.dp))
-        .glassOnly { background(Brush.horizontalGradient(listOf(Color.White.copy(.075f),Color.White.copy(.025f),Color.Transparent))) }
-        .flatOnly { background(Color.White.copy(.06f)) }
-        .border(.6.dp,Color.White.copy(.065f),RoundedCornerShape(19.dp))
+        .glassOnly { background(Brush.horizontalGradient(listOf(Color.White.copy(.075f),Color.White.copy(.025f),Color.Transparent))).border(.6.dp,Color.White.copy(.065f),RoundedCornerShape(19.dp)) }
         .clickable{onPlay(track)}.padding(horizontal=9.dp,vertical=9.dp),verticalAlignment=Alignment.CenterVertically) {
-        Box(Modifier.size(48.dp).clip(RoundedCornerShape(15.dp)).border(1.dp,Color.White.copy(.14f),RoundedCornerShape(15.dp))) { Artwork(track.artwork,48) }
+        Box(Modifier.size(48.dp).clip(RoundedCornerShape(15.dp))) { Artwork(track.artwork,48) }
         Spacer(Modifier.width(11.dp))
         Column(Modifier.weight(1f)) {
             Text((rank?.let{"$it  ·  "}?:"")+track.title,color=White,fontWeight=FontWeight.SemiBold,fontSize=13.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
             Text(track.artist+" · "+track.album,color=Muted,fontSize=10.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
         }
         if(plays!=null) Text("${plays}×",color=Lavender,fontSize=10.sp)
-        Box(Modifier.padding(start=8.dp).size(31.dp).clip(CircleShape).background(Color.White.copy(.075f)).border(1.dp,Color.White.copy(.12f),CircleShape),contentAlignment=Alignment.Center) {
+        Box(Modifier.padding(start=8.dp).size(31.dp).clip(CircleShape).then(if(GlassPrefs.enabled) Modifier.background(Color.White.copy(.075f)).border(1.dp,Color.White.copy(.12f),CircleShape) else Modifier),contentAlignment=Alignment.Center) {
             Icon(Icons.Rounded.PlayArrow,null,tint=Lavender,modifier=Modifier.size(19.dp))
         }
     }
