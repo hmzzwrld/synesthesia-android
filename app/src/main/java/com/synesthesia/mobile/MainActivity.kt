@@ -543,6 +543,7 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                                 )
                         }
                     }
+                }
             }
         }
     }
