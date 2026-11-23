@@ -155,43 +155,86 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun FrequencyMark(size: androidx.compose.ui.unit.Dp, colors: List<Color>, modifier: Modifier = Modifier) {
-    androidx.compose.foundation.Canvas(modifier.size(size)) {
-        val w = this.size.width
-        val h = this.size.height
-        val stroke = w * .075f
-        val paths = listOf(
-            androidx.compose.ui.graphics.Path().apply {
-                moveTo(w * .09f, h * .28f)
-                cubicTo(w * .27f, h * .04f, w * .39f, h * .88f, w * .56f, h * .51f)
-                cubicTo(w * .70f, h * .22f, w * .79f, h * .13f, w * .91f, h * .34f)
-            },
-            androidx.compose.ui.graphics.Path().apply {
-                moveTo(w * .09f, h * .50f)
-                cubicTo(w * .27f, h * .27f, w * .39f, h * .80f, w * .56f, h * .50f)
-                cubicTo(w * .70f, h * .24f, w * .79f, h * .28f, w * .91f, h * .50f)
-            },
-            androidx.compose.ui.graphics.Path().apply {
-                moveTo(w * .09f, h * .72f)
-                cubicTo(w * .27f, h * .49f, w * .39f, h * .95f, w * .56f, h * .49f)
-                cubicTo(w * .70f, h * .14f, w * .79f, h * .48f, w * .91f, h * .69f)
-            }
+private fun MascotMark(size: androidx.compose.ui.unit.Dp, hairColor: Color, modifier: Modifier = Modifier) {
+    Box(modifier.size(size)) {
+        Image(
+            painter = painterResource(R.drawable.mascot_base),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Fit
         )
-        val logoBrush = Brush.linearGradient(
-            colors = colors,
-            start = androidx.compose.ui.geometry.Offset(0f, 0f),
-            end = androidx.compose.ui.geometry.Offset(w, h)
+        Image(
+            painter = painterResource(R.drawable.mascot_hair_mask),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Fit,
+            colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(hairColor)
         )
-        paths.forEach { path ->
-            drawPath(
-                path = path,
-                brush = logoBrush,
-                style = androidx.compose.ui.graphics.drawscope.Stroke(
-                    width = stroke,
-                    cap = androidx.compose.ui.graphics.StrokeCap.Round,
-                    join = androidx.compose.ui.graphics.StrokeJoin.Round
-                )
+    }
+}
+
+@Composable
+private fun MascotIntro(
+    size: androidx.compose.ui.unit.Dp,
+    hairColor: Color,
+    eyesClosed: Boolean,
+    eyesAwake: Boolean,
+    scanProgress: Float
+) {
+    Box(Modifier.size(size)) {
+        MascotMark(size, hairColor)
+        if (eyesAwake) {
+            Image(
+                painter = painterResource(R.drawable.mascot_eye_mask),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize().blur(5.dp),
+                contentScale = ContentScale.Fit,
+                colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Color(0xFFFF263F))
             )
+            Image(
+                painter = painterResource(R.drawable.mascot_eye_mask),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Fit,
+                colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Color(0xFFFF334B))
+            )
+        }
+        if (eyesClosed) {
+            androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+                val w = size.width
+                val h = size.height
+                drawRoundRect(
+                    color = Color.Black,
+                    topLeft = androidx.compose.ui.geometry.Offset(w * .285f, h * .685f),
+                    size = androidx.compose.ui.geometry.Size(w * .47f, h * .17f),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * .035f)
+                )
+                val left = androidx.compose.ui.graphics.Path().apply {
+                    moveTo(w * .315f, h * .725f)
+                    cubicTo(w * .365f, h * .785f, w * .445f, h * .815f, w * .515f, h * .812f)
+                }
+                val right = androidx.compose.ui.graphics.Path().apply {
+                    moveTo(w * .625f, h * .812f)
+                    cubicTo(w * .685f, h * .805f, w * .735f, h * .755f, w * .765f, h * .715f)
+                }
+                drawPath(left, Color.White, style = androidx.compose.ui.graphics.drawscope.Stroke(width = w * .018f, cap = androidx.compose.ui.graphics.StrokeCap.Round))
+                drawPath(right, Color.White, style = androidx.compose.ui.graphics.drawscope.Stroke(width = w * .018f, cap = androidx.compose.ui.graphics.StrokeCap.Round))
+                // Keep the injured eye's slash recognizable while the mascot sleeps.
+                drawLine(Color.Black, androidx.compose.ui.geometry.Offset(w * .704f, h * .785f), androidx.compose.ui.geometry.Offset(w * .735f, h * .748f), strokeWidth = w * .025f)
+            }
+        }
+        if (scanProgress in 0f..1f && scanProgress > 0f && !eyesAwake) {
+            androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+                val x = size.width * (.20f + .62f * scanProgress)
+                val y = size.height * .765f
+                drawLine(
+                    brush = Brush.horizontalGradient(listOf(Color.Transparent, Color(0xFFFF263F), Color.White, Color(0xFFFF263F), Color.Transparent), startX = x - size.width * .18f, endX = x + size.width * .18f),
+                    start = androidx.compose.ui.geometry.Offset(x - size.width * .18f, y),
+                    end = androidx.compose.ui.geometry.Offset(x + size.width * .18f, y),
+                    strokeWidth = size.width * .035f,
+                    cap = androidx.compose.ui.graphics.StrokeCap.Round
+                )
+            }
         }
     }
 }
@@ -219,9 +262,19 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
     var introStarted by remember { mutableStateOf(false) }
     var scanMessage by remember { mutableStateOf("Scan your device to find music") }
     LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(45)
+        kotlinx.coroutines.delay(120)
         introStarted = true
-        kotlinx.coroutines.delay(690)
+        kotlinx.coroutines.delay(440)
+        introEyesClosed = true
+        kotlinx.coroutines.delay(380)
+        introScanActive = true
+        kotlinx.coroutines.delay(430)
+        introEyesClosed = false
+        introEyesAwake = true
+        kotlinx.coroutines.delay(420)
+        introEyesAwake = false
+        introScanActive = false
+        kotlinx.coroutines.delay(700)
         introVisible = false
     }
     var playCounts by remember { mutableStateOf<Map<Long, Int>>(emptyMap()) }
@@ -435,7 +488,7 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                 Column(Modifier.fillMaxSize().systemBarsPadding().padding(horizontal=16.dp)) {
                     Row(Modifier.fillMaxWidth().padding(top=12.dp,bottom=14.dp), verticalAlignment=Alignment.CenterVertically, horizontalArrangement=Arrangement.SpaceBetween) {
                         Row(verticalAlignment=Alignment.CenterVertically, horizontalArrangement=Arrangement.spacedBy(9.dp)) {
-                            FrequencyMark(27.dp, listOf(displayedPalette.first, displayedPalette.second, displayedPalette.third))
+                            MascotMark(27.dp, displayedPalette.first)
                             Column {
                                 Text("SYNESTHESIA", color=White, fontSize=17.sp, fontWeight=FontWeight.Black, letterSpacing=3.sp, fontFamily=SynesthesiaUrbanist)
                                 Row(verticalAlignment=Alignment.CenterVertically) {
@@ -517,11 +570,14 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                 ) {
                     Box(Modifier.fillMaxSize().background(Ink), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            FrequencyMark(
-                                92.dp,
-                                listOf(displayedPalette.first, displayedPalette.second, displayedPalette.third),
-                                Modifier.graphicsLayer { scaleX = introScale; scaleY = introScale }
+                            MascotIntro(
+                                size = 112.dp,
+                                hairColor = displayedPalette.first,
+                                eyesClosed = introEyesClosed,
+                                eyesAwake = introEyesAwake,
+                                scanProgress = introScanProgress
                             )
+
                             Spacer(Modifier.height(22.dp))
                             Text(
                                 "SYNESTHESIA",
