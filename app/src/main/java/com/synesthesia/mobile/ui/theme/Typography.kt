@@ -1,10 +1,9 @@
 package com.synesthesia.mobile.ui.theme
 
-import androidx.compose.material3.Typography
 import androidx.compose.material3.Shapes
+import androidx.compose.material3.Typography
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.googlefonts.Font
@@ -31,7 +30,29 @@ private fun downloadableFamily(name: String): FontFamily {
 val SynesthesiaUrbanist: FontFamily = downloadableFamily("Urbanist")
 val SynesthesiaDmSans: FontFamily = downloadableFamily("DM Sans")
 
-val SynesthesiaTypography = Typography(defaultFontFamily = SynesthesiaDmSans)
+private val baseTypography = Typography()
+
+/**
+ * Material 3 1.2.0 does not expose a defaultFontFamily constructor parameter.
+ * Assign the two typefaces to the individual styles instead.
+ */
+val SynesthesiaTypography = Typography(
+    displayLarge = baseTypography.displayLarge.copy(fontFamily = SynesthesiaUrbanist),
+    displayMedium = baseTypography.displayMedium.copy(fontFamily = SynesthesiaUrbanist),
+    displaySmall = baseTypography.displaySmall.copy(fontFamily = SynesthesiaUrbanist),
+    headlineLarge = baseTypography.headlineLarge.copy(fontFamily = SynesthesiaUrbanist),
+    headlineMedium = baseTypography.headlineMedium.copy(fontFamily = SynesthesiaUrbanist),
+    headlineSmall = baseTypography.headlineSmall.copy(fontFamily = SynesthesiaUrbanist),
+    titleLarge = baseTypography.titleLarge.copy(fontFamily = SynesthesiaUrbanist),
+    titleMedium = baseTypography.titleMedium.copy(fontFamily = SynesthesiaUrbanist),
+    titleSmall = baseTypography.titleSmall.copy(fontFamily = SynesthesiaUrbanist),
+    bodyLarge = baseTypography.bodyLarge.copy(fontFamily = SynesthesiaDmSans),
+    bodyMedium = baseTypography.bodyMedium.copy(fontFamily = SynesthesiaDmSans),
+    bodySmall = baseTypography.bodySmall.copy(fontFamily = SynesthesiaDmSans),
+    labelLarge = baseTypography.labelLarge.copy(fontFamily = SynesthesiaDmSans),
+    labelMedium = baseTypography.labelMedium.copy(fontFamily = SynesthesiaDmSans),
+    labelSmall = baseTypography.labelSmall.copy(fontFamily = SynesthesiaDmSans)
+)
 
 /** Softer component defaults so Material controls follow the app's rounded visual language. */
 val SynesthesiaShapes = Shapes(
