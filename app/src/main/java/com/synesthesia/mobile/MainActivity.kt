@@ -499,7 +499,7 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                     Column(Modifier.width(214.dp).glassOnly { shadow(22.dp,RoundedCornerShape(28.dp),ambientColor=Lavender.copy(.18f)) }
                         .clip(RoundedCornerShape(28.dp))
                         .glassBackdrop(hazeState,22.dp,0.012f)
-                        .background(if(GlassPrefs.enabled) Brush.linearGradient(listOf(Color.White.copy(.17f),Color(0xFF171522).copy(.80f),Color(0xFF171522).copy(.92f))) else Color(0xFF191824))
+                        .glassOnly { background(Brush.linearGradient(listOf(Color.White.copy(.17f),Color(0xFF171522).copy(.80f),Color(0xFF171522).copy(.92f)))) }
                         .border(1.dp,if(GlassPrefs.enabled) Brush.verticalGradient(listOf(Color.White.copy(.34f),Lavender.copy(.16f),Color.White.copy(.07f))) else Brush.verticalGradient(listOf(Color.White.copy(.12f),Color.White.copy(.05f))),RoundedCornerShape(28.dp))
                         .padding(9.dp), verticalArrangement=Arrangement.spacedBy(3.dp)) {
                         Text("ARRANGE BY",color=Lavender,fontSize=9.sp,letterSpacing=1.8.sp,fontWeight=FontWeight.Bold,modifier=Modifier.padding(start=12.dp,top=8.dp,bottom=5.dp))
