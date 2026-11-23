@@ -405,9 +405,9 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                         modifier=Modifier.weight(1f).fillMaxWidth()
                     ) { destination ->
                         when(destination) {
-                            Tab.HOME -> HomeScreen(tracks, recentIds, playCounts, monthlyCounts, selected, ::play, {tab=Tab.LIBRARY}, scanMessage)
-                            Tab.SEARCH -> SearchScreen(tracks, searchQuery, {searchQuery=it}, ::play)
-                            Tab.LIBRARY -> LibraryScreen(tracks, libraryTab, {libraryTab=it}, librarySort, {librarySort=it}, recentIds, glassHaze, ::play)
+                            Tab.HOME -> HomeScreen(tracks, recentIds, playCounts, monthlyCounts, selected, ::play, {tab=Tab.LIBRARY}, scanMessage, lightTheme)
+                            Tab.SEARCH -> SearchScreen(tracks, searchQuery, {searchQuery=it}, ::play, lightTheme)
+                            Tab.LIBRARY -> LibraryScreen(tracks, libraryTab, {libraryTab=it}, librarySort, {librarySort=it}, recentIds, glassHaze, ::play, lightTheme)
                         }
                     }
                 }
@@ -424,7 +424,7 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                     if (selected != null) PlayerSheet(selected!!, playing,
                         { if(player.isPlaying) player.pause() else player.play() },
                         {player.seekToPreviousMediaItem()}, {player.seekToNextMediaItem()},
-                        {expandedPlayer=false}, player, tracks, displayedPalette,
+                        {expandedPlayer=false}, player, tracks, displayedPalette, glassHaze,
                         { equalizerOpen=true }, lightTheme)
                 }
                 // Queue is drawn first; the compact island is drawn above it, just like the website z-index stack.
@@ -457,24 +457,24 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
     }
 }
 
-@Composable private fun HomeScreen(tracks:List<LocalTrack>, recent:List<Long>, counts:Map<Long,Int>, monthly:Map<Long,Int>, selected:LocalTrack?, onPlay:(LocalTrack)->Unit, openLibrary:()->Unit, message:String) {
+@Composable private fun HomeScreen(tracks:List<LocalTrack>, recent:List<Long>, counts:Map<Long,Int>, monthly:Map<Long,Int>, selected:LocalTrack?, onPlay:(LocalTrack)->Unit, openLibrary:()->Unit, message:String, lightTheme:Boolean) {
     val recentTracks=recent.mapNotNull { id -> tracks.find{it.id==id} }
     val most=tracks.sortedByDescending { counts[it.id]?:0 }.filter { (counts[it.id]?:0)>0 }.take(10)
     val monthTop=tracks.sortedByDescending { monthly[it.id]?:0 }.filter { (monthly[it.id]?:0)>0 }.take(10)
     LazyColumn(verticalArrangement=Arrangement.spacedBy(16.dp), contentPadding=PaddingValues(bottom=190.dp)) {
         item { Column { Text("Good music, good mood.", color=White,fontSize=25.sp,fontWeight=FontWeight.Bold,fontFamily=SynesthesiaUrbanist); Text(message,color=Muted,fontSize=12.sp) } }
         item { SectionHeader("YOUR ROTATION", "MOST PLAYED"); if(most.isEmpty()) EmptyCard("Your most-played tracks will appear here as you listen.") else most.take(5).forEach { TrackRow(it,onPlay,counts[it.id]?:0) } }
-        item { SectionHeader("PICK UP WHERE YOU LEFT", "RECENTLY PLAYED"); if(recentTracks.isEmpty()) EmptyCard("Your listening history will build automatically.") else recentTracks.take(6).forEach { TrackRow(it,onPlay) } }
-        item { SectionHeader("MONTHLY REPLAY", "YOUR TOP 10"); if(monthTop.isEmpty()) EmptyCard("Your monthly ranking starts with your listening activity.") else monthTop.forEachIndexed { i,t -> TrackRow(t,onPlay,monthly[t.id]?:0,rank=i+1) } }
+        item { SectionHeader("PICK UP WHERE YOU LEFT", "RECENTLY PLAYED"); if(recentTracks.isEmpty()) EmptyCard("Your listening history will build automatically.") else recentTracks.take(6).forEach { TrackRow(it,onPlay,lightTheme=lightTheme) } }
+        item { SectionHeader("MONTHLY REPLAY", "YOUR TOP 10"); if(monthTop.isEmpty()) EmptyCard("Your monthly ranking starts with your listening activity.") else monthTop.forEachIndexed { i,t -> TrackRow(t,onPlay,monthly[t.id]?:0,rank=i+1,lightTheme=lightTheme) } }
         item { SectionHeader("YOUR COLLECTION", "LIBRARY"); GlassCard(Modifier.fillMaxWidth().clickable(onClick=openLibrary).padding(18.dp)) { Row(verticalAlignment=Alignment.CenterVertically) { Icon(Icons.Rounded.LibraryMusic,null,tint=Lavender); Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)){Text("Explore your music",color=White,fontWeight=FontWeight.SemiBold);Text("Songs · Albums · Artists · Genres · Folders",color=Muted,fontSize=11.sp)}; Icon(Icons.Rounded.ChevronRight,null,tint=Muted) } } }
     }
 }
 
-@Composable private fun SearchScreen(tracks:List<LocalTrack>, query:String, change:(String)->Unit, play:(LocalTrack)->Unit) {
-    Column { Text("Find your sound",color=White,fontSize=24.sp,fontWeight=FontWeight.Bold,fontFamily=SynesthesiaUrbanist); Spacer(Modifier.height(12.dp)); OutlinedTextField(query,change,Modifier.fillMaxWidth(),placeholder={Text("Search songs, artists, albums…",color=Muted)},leadingIcon={Icon(Icons.Rounded.Search,null,tint=Lavender)},singleLine=true,shape=RoundedCornerShape(20.dp),colors=OutlinedTextFieldDefaults.colors(focusedBorderColor=Lavender,unfocusedBorderColor=Color.White.copy(.16f),focusedTextColor=White,unfocusedTextColor=White)); Spacer(Modifier.height(14.dp)); LazyColumn(contentPadding=PaddingValues(top=2.dp,bottom=190.dp), verticalArrangement=Arrangement.spacedBy(7.dp)) { items(tracks.filter{query.isBlank() || listOf(it.title,it.artist,it.album).any{s->s.contains(query,true)}}) { TrackRow(it,play) } } }
+@Composable private fun SearchScreen(tracks:List<LocalTrack>, query:String, change:(String)->Unit, play:(LocalTrack)->Unit, lightTheme:Boolean) {
+    Column { Text("Find your sound",color=White,fontSize=24.sp,fontWeight=FontWeight.Bold,fontFamily=SynesthesiaUrbanist); Spacer(Modifier.height(12.dp)); OutlinedTextField(query,change,Modifier.fillMaxWidth(),placeholder={Text("Search songs, artists, albums…",color=Muted)},leadingIcon={Icon(Icons.Rounded.Search,null,tint=Lavender)},singleLine=true,shape=RoundedCornerShape(20.dp),colors=OutlinedTextFieldDefaults.colors(focusedBorderColor=Lavender,unfocusedBorderColor=Color.White.copy(.16f),focusedTextColor=White,unfocusedTextColor=White)); Spacer(Modifier.height(14.dp)); LazyColumn(contentPadding=PaddingValues(top=2.dp,bottom=190.dp), verticalArrangement=Arrangement.spacedBy(7.dp)) { items(tracks.filter{query.isBlank() || listOf(it.title,it.artist,it.album).any{s->s.contains(query,true)}}) { TrackRow(it,play,lightTheme=lightTheme) } } }
 }
 
-@Composable private fun LibraryScreen(tracks:List<LocalTrack>, selected:LibraryTab, choose:(LibraryTab)->Unit, sort:String, changeSort:(String)->Unit, recentIds:List<Long>, hazeState:HazeState, play:(LocalTrack)->Unit) {
+@Composable private fun LibraryScreen(tracks:List<LocalTrack>, selected:LibraryTab, choose:(LibraryTab)->Unit, sort:String, changeSort:(String)->Unit, recentIds:List<Long>, hazeState:HazeState, play:(LocalTrack)->Unit, lightTheme:Boolean) {
     var sortMenuOpen by remember { mutableStateOf(false) }
     val sortOptions = listOf("Name A–Z","Name Z–A","Recently added","Recently played","Album","Artist")
     val sortedTracks = when(sort) {
@@ -504,7 +504,7 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
             Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) { LibraryTab.values().forEach { item -> FilterChip(selected==item,{choose(item)},label={Text(item.label,fontSize=11.sp)},colors=FilterChipDefaults.filterChipColors(selectedContainerColor=Violet.copy(.35f),labelColor=Muted,selectedLabelColor=White)) } }
             Spacer(Modifier.height(8.dp))
             when(selected) {
-                LibraryTab.SONGS -> LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(sortedTracks) { TrackRow(it,play) } }
+                LibraryTab.SONGS -> LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(sortedTracks) { TrackRow(it,play,lightTheme=lightTheme) } }
                 LibraryTab.ALBUMS -> LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(tracks.groupBy{it.album}.toList().let { groups -> when(sort) { "Name Z–A" -> groups.sortedByDescending{it.first.lowercase()}; "Artist" -> groups.sortedWith(compareBy({it.second.firstOrNull()?.artist?.lowercase().orEmpty()},{it.first.lowercase()})); "Recently added" -> groups.sortedByDescending{it.second.maxOfOrNull { t->t.dateAdded }?:0L}; else -> groups.sortedBy{it.first.lowercase()} } }) { (name,songs) -> CollectionRow(name,songs.first().artist,"${songs.size} tracks",songs.first().artwork){songs.firstOrNull()?.let(play)} } }
                 LibraryTab.ARTISTS -> LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(tracks.groupBy{it.artist}.toList().let { groups -> if(sort=="Name Z–A") groups.sortedByDescending{it.first.lowercase()} else groups.sortedBy{it.first.lowercase()} }) { (name,songs) -> CollectionRow(name,"Artist","${songs.size} tracks",songs.first().artwork){songs.firstOrNull()?.let(play)} } }
                 LibraryTab.GENRES -> LazyColumn(contentPadding=PaddingValues(bottom=190.dp)) { items(tracks.groupBy{it.genre}.toList().let { groups -> if(sort=="Name Z–A") groups.sortedByDescending{it.first.lowercase()} else groups.sortedBy{it.first.lowercase()} }) { (name,songs) -> CollectionRow(name,"Genre","${songs.size} tracks",songs.first().artwork){songs.firstOrNull()?.let(play)} } }
@@ -545,15 +545,16 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
     }
 }
 
-@Composable private fun TrackRow(track:LocalTrack,onPlay:(LocalTrack)->Unit,plays:Int?=null,rank:Int?=null) {
+@Composable private fun TrackRow(track:LocalTrack,onPlay:(LocalTrack)->Unit,plays:Int?=null,rank:Int?=null,lightTheme:Boolean=false) {
     Row(Modifier.fillMaxWidth().animateContentSize(spring(dampingRatio=.86f, stiffness=420f)).clip(RoundedCornerShape(19.dp))
         .glassOnly { background(Brush.horizontalGradient(listOf(Color.White.copy(.075f),Color.White.copy(.025f),Color.Transparent))).border(.6.dp,Color.White.copy(.065f),RoundedCornerShape(19.dp)) }
         .clickable{onPlay(track)}.padding(horizontal=9.dp,vertical=9.dp),verticalAlignment=Alignment.CenterVertically) {
         Box(Modifier.size(48.dp).clip(RoundedCornerShape(15.dp))) { Artwork(track.artwork,48) }
         Spacer(Modifier.width(11.dp))
         Column(Modifier.weight(1f)) {
-            Text((rank?.let{"$it  ·  "}?:"")+track.title,color=White,fontWeight=FontWeight.SemiBold,fontSize=13.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
-            Text(track.artist+" · "+track.album,color=Muted,fontSize=10.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
+            Text((rank?.let{"$it  ·  "}?:"")+track.title,color=if(lightTheme) Color(0xFF211D2A) else White,fontWeight=FontWeight.SemiBold,fontSize=13.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
+            Text(track.album,color=if(lightTheme) Color(0xFF51465F) else Muted,fontSize=10.sp,fontWeight=FontWeight.Medium,maxLines=1,overflow=TextOverflow.Ellipsis)
+            Text(track.artist,color=if(lightTheme) Color(0xFF706879) else Muted.copy(.82f),fontSize=9.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
         }
         if(plays!=null) Text("${plays}×",color=Lavender,fontSize=10.sp)
         Box(Modifier.padding(start=8.dp).size(31.dp).clip(CircleShape).then(if(GlassPrefs.enabled) Modifier.background(Color.White.copy(.075f)).border(1.dp,Color.White.copy(.12f),CircleShape) else Modifier),contentAlignment=Alignment.Center) {
@@ -831,6 +832,7 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
     player: ExoPlayer,
     queue: List<LocalTrack>,
     palette: Triple<Color,Color,Color>,
+    hazeState: HazeState,
     openEqualizer: () -> Unit,
     lightTheme: Boolean
 ) {
@@ -876,7 +878,10 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
             val expandedHeight = (maxHeight - topInset - bottomInset - 22.dp).coerceAtLeast(380.dp)
             Column(
                 Modifier.align(Alignment.TopCenter).padding(top=topInset + 10.dp).fillMaxWidth().height(expandedHeight).padding(horizontal=12.dp).widthIn(max=440.dp)
-                    .glassOnly { shadow(26.dp,panelShape,ambientColor=accent.copy(.18f),spotColor=Color.Black.copy(.42f)) }
+                    .glassOnly { shadow(26.dp,panelShape,ambientColor=accent.copy(.22f),spotColor=Color.Black.copy(.46f)) }
+                    .liquidEdge(cornerRadius=48.dp, strengthDp=13f)
+                    .clip(panelShape)
+                    .glassBackdrop(hazeState,14.dp,0.018f)
                     .clip(panelShape)
                     .glassOnly { background(Color(0xFF0E0E18).copy(.42f)) }
                     .flatOnly { background(playerSurface.copy(.99f)) }
@@ -940,10 +945,14 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                 // Track identity and album line mirror .np-meta and .np-album.
                 Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(2.dp)) {
                     Text(track.title,color=playerText,fontSize=21.sp,fontWeight=FontWeight.Bold,fontFamily=SynesthesiaUrbanist,maxLines=1,overflow=TextOverflow.Ellipsis)
-                    Text(track.artist,color=playerMuted,fontSize=14.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
+                    Text(track.artist,color=if(lightTheme) Color(0xFF51465F) else playerMuted,fontSize=14.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
                     Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(6.dp)) {
-                        Icon(Icons.Rounded.Album,null,tint=accent.copy(.85f),modifier=Modifier.size(12.dp))
-                        Text(track.album,color=accent.copy(.85f),fontSize=11.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
+                        Icon(Icons.Rounded.Album,null,tint=if(lightTheme) Color(0xFF51465F) else accent,modifier=Modifier.size(12.dp))
+                        Text(track.album,color=if(lightTheme) Color(0xFF51465F) else accent.copy(.95f),fontSize=11.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
+                    }
+                    Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                        Icon(Icons.Rounded.Category,null,tint=if(lightTheme) Color(0xFF625B6D) else playerMuted,modifier=Modifier.size(12.dp))
+                        Text(track.genre,color=if(lightTheme) Color(0xFF625B6D) else playerMuted,fontSize=10.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
                     }
                 }
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.End) {
