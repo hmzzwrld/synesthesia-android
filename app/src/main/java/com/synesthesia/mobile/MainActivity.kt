@@ -692,14 +692,14 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                     .glassOnly { shadow(28.dp,organicShape,ambientColor=accent.copy(.20f),spotColor=Color.Black.copy(.56f)) }
                     .liquidEdge(cornerRadius=46.dp, strengthDp=10f)
                     .clip(organicShape)
-                    .glassBackdrop(hazeState, 30.dp, 0.018f)
+                    .glassBackdrop(hazeState, 14.dp, 0.018f)
                     .clip(organicShape)
                     // Darker material keeps list content legible while retaining the blurred background.
-                    .glassOnly { background(Color(0xFF0E0C1A).copy(.46f)) }
-                    .glassOnly { background(Brush.linearGradient(listOf(Color.White.copy(.14f),Color.White.copy(.035f),Color(0xFF0E0C1A).copy(.30f)))) }
-                    .glassOnly { background(Brush.radialGradient(listOf(palette.first.copy(.20f),Color.Transparent),radius=850f,center=androidx.compose.ui.geometry.Offset(500f,1200f))) }
-                    .glassOnly { background(Brush.radialGradient(listOf(palette.second.copy(.12f),Color.Transparent),radius=620f,center=androidx.compose.ui.geometry.Offset(0f,0f))) }
-                    .glassOnly { background(Brush.radialGradient(listOf(palette.third.copy(.10f),Color.Transparent),radius=500f,center=androidx.compose.ui.geometry.Offset(300f,-60f))) }
+                    .glassOnly { background(Color(0xFF0E0E18).copy(.42f)) }
+                    .glassOnly { background(Brush.linearGradient(listOf(Color.White.copy(.14f),Color.White.copy(.04f),Color(0xFF141222).copy(.38f)))) }
+                    .glassOnly { background(Brush.radialGradient(listOf(palette.first.copy(.16f),Color.Transparent),radius=460f,center=androidx.compose.ui.geometry.Offset(500f,1200f))) }
+                    .glassOnly { background(Brush.radialGradient(listOf(palette.second.copy(.14f),Color.Transparent),radius=360f,center=androidx.compose.ui.geometry.Offset(0f,0f))) }
+                    .glassOnly { background(Brush.radialGradient(listOf(palette.third.copy(.12f),Color.Transparent),radius=420f,center=androidx.compose.ui.geometry.Offset(300f,-60f))) }
                     .glassOnly { border(1.dp,Brush.verticalGradient(listOf(Color.White.copy(.42f),Color.White.copy(.17f),Color.White.copy(.07f))),organicShape) }
             ) {
                 // Website's lq-sheen: broad top reflection and a faint lower-right reflection.
@@ -878,9 +878,10 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                 Modifier.align(Alignment.TopCenter).padding(top=topInset + 10.dp).fillMaxWidth().height(expandedHeight).padding(horizontal=12.dp).widthIn(max=440.dp)
                     .glassOnly { shadow(26.dp,panelShape,ambientColor=accent.copy(.18f),spotColor=Color.Black.copy(.42f)) }
                     .clip(panelShape)
-                    .background(playerSurface.copy(if(GlassPrefs.enabled) .82f else .99f))
-                    .glassOnly { background(Brush.linearGradient(listOf(Color.White.copy(.18f),Color.White.copy(.045f),(if (lightTheme) Color(0xFFECE6F3) else Color(0xFF090914)).copy(.34f)))) }
-                    .glassOnly { border(1.dp,Brush.verticalGradient(listOf(Color.White.copy(.34f),Color.White.copy(.12f),Color.White.copy(.07f))),panelShape) }
+                    .glassOnly { background(Color(0xFF0E0E18).copy(.42f)) }
+                    .flatOnly { background(playerSurface.copy(.99f)) }
+                    .glassOnly { background(Brush.linearGradient(listOf(Color.White.copy(.14f),Color.White.copy(.04f),Color(0xFF141222).copy(.38f)))) }
+                    .glassOnly { border(1.dp,Brush.verticalGradient(listOf(Color.White.copy(.42f),Color.White.copy(.17f),Color.White.copy(.07f))),panelShape) }
                     .clickable {}.padding(start=22.dp, top=17.dp, end=22.dp, bottom=15.dp),
                 horizontalAlignment=Alignment.CenterHorizontally,
                 verticalArrangement=Arrangement.spacedBy(9.dp)
@@ -1090,9 +1091,14 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
 @Composable private fun SettingsCard(lightTheme: Boolean = false, title: String, subtitle: String, content: @Composable ColumnScope.() -> Unit) {
     val cardText = if (lightTheme) Color(0xFF211D2A) else White
     val cardMuted = if (lightTheme) Color(0xFF625B6D) else Muted
-    val cardSurface = if (lightTheme) Color(0xFFECE7F2) else Color.White.copy(.065f)
-    val cardStroke = if (lightTheme) Color(0xFF4E435D).copy(.14f) else Color.White.copy(.11f)
-    Column(Modifier.fillMaxWidth().animateContentSize(spring(dampingRatio=.84f, stiffness=380f)).clip(RoundedCornerShape(22.dp)).background(cardSurface).border(1.dp,cardStroke,RoundedCornerShape(22.dp)).padding(16.dp), verticalArrangement=Arrangement.spacedBy(9.dp)) {
+    val cardShape = RoundedCornerShape(22.dp)
+    val cardSurface = if (lightTheme) Color(0xFFECE7F2) else Color(0xFF0E0E18).copy(.42f)
+    val cardStroke = if (lightTheme) Color(0xFF4E435D).copy(.14f) else Color.White.copy(.12f)
+    Column(Modifier.fillMaxWidth().animateContentSize(spring(dampingRatio=.84f, stiffness=380f))
+        .glassOnly { shadow(12.dp,cardShape,ambientColor=Lavender.copy(.10f)) }
+        .clip(cardShape).background(cardSurface)
+        .glassOnly { background(Brush.linearGradient(listOf(Color.White.copy(.14f),Color.White.copy(.04f),Color(0xFF141222).copy(.20f)))) }
+        .border(1.dp,cardStroke,cardShape).padding(16.dp), verticalArrangement=Arrangement.spacedBy(9.dp)) {
         Text(title, color=cardText, fontSize=16.sp, fontWeight=FontWeight.SemiBold)
         Text(subtitle, color=cardMuted, fontSize=11.sp)
         content()
