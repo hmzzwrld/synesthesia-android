@@ -527,11 +527,11 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                                 resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
                                 setKeepContentOnPlayerReset(true)
                                 setShutterBackgroundColor(android.graphics.Color.BLACK)
-                                player = introPlayer
+                                setPlayer(introPlayer)
                             }
                         },
-                        update = { view -> if (view.player !== introPlayer) view.player = introPlayer },
-                        onRelease = { view -> view.player = null }
+                        update = { view -> if (view.player !== introPlayer) view.setPlayer(introPlayer) },
+                        onRelease = { view -> view.setPlayer(null) }
                     )
                 }
 
