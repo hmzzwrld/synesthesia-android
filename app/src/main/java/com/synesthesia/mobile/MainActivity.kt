@@ -1,6 +1,7 @@
 package com.synesthesia.mobile
 
 import android.Manifest
+import android.app.Activity
 import android.app.PendingIntent
 import android.media.MediaMetadataRetriever
 import android.media.audiofx.Equalizer
@@ -12,7 +13,6 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
-import android.widget.VideoView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -71,10 +71,13 @@ import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.PlayerView
+import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
@@ -195,7 +198,40 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
     var liquidQueueOpen by remember { mutableStateOf(false) }
     var scanning by remember { mutableStateOf(false) }
     var introVisible by remember { mutableStateOf(true) }
-    var introVideoView by remember { mutableStateOf<VideoView?>(null) }
+    // Dedicated video engine; it never shares or modifies the music player.
+    val introPlayer = remember(context) {
+        ExoPlayer.Builder(context).build().apply {
+            repeatMode = Player.REPEAT_MODE_OFF
+            setMediaItem(MediaItem.fromUri(Uri.parse("android.resource://${context.packageName}/${R.raw.synesthesia_intro}")))
+            prepare()
+        }
+    }
+    DisposableEffect(introPlayer) {
+        val listener = object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == Player.STATE_ENDED) introVisible = false
+            }
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                introVisible = false
+            }
+        }
+        introPlayer.addListener(listener)
+        introPlayer.playWhenReady = true
+        onDispose {
+            introPlayer.removeListener(listener)
+            introPlayer.release()
+        }
+    }
+    LaunchedEffect(introVisible) {
+        val activity = context as? Activity
+        val controller = activity?.let { WindowInsetsControllerCompat(it.window, it.window.decorView) }
+        if (introVisible) {
+            controller?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller?.hide(WindowInsetsCompat.Type.systemBars())
+        } else {
+            controller?.show(WindowInsetsCompat.Type.systemBars())
+        }
+    }
     var scanMessage by remember { mutableStateOf("Scan your device to find music") }
     var playCounts by remember { mutableStateOf<Map<Long, Int>>(emptyMap()) }
     var recentIds by remember { mutableStateOf<List<Long>>(emptyList()) }
@@ -486,33 +522,19 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                     AndroidView(
                         modifier = Modifier.fillMaxSize().background(Color.Black),
                         factory = { viewContext ->
-                            VideoView(viewContext).apply {
-                                setVideoURI(Uri.parse("android.resource://${viewContext.packageName}/${R.raw.synesthesia_intro}"))
-                                setOnCompletionListener {
-                                    introVisible = false
-                                    introVideoView = null
-                                }
-                                setOnErrorListener { _, _, _ ->
-                                    introVisible = false
-                                    introVideoView = null
-                                    true
-                                }
-                                setOnPreparedListener { mediaPlayer ->
-                                    mediaPlayer.isLooping = false
-                                    start()
-                                }
-                                introVideoView = this
+                            PlayerView(viewContext).apply {
+                                useController = false
+                                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                                setKeepContentOnPlayerReset(true)
+                                setShutterBackgroundColor(android.graphics.Color.BLACK)
+                                player = introPlayer
                             }
                         },
-                        update = { view ->
-                            if (introVisible && !view.isPlaying) view.start()
-                        }
+                        update = { view -> if (view.player !== introPlayer) view.player = introPlayer },
+                        onRelease = { view -> view.player = null }
                     )
                 }
-                DisposableEffect(introVideoView) {
-                    val activeVideo = introVideoView
-                    onDispose { activeVideo?.stopPlayback() }
-                }
+
             }
         }
     }
