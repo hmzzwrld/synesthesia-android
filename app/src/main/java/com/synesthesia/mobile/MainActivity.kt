@@ -12,6 +12,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
+import android.widget.VideoView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -83,6 +84,7 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.haze
 import dev.chrisbanes.haze.hazeChild
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.viewinterop.AndroidView
 import com.synesthesia.mobile.ui.theme.SynesthesiaAtmosphere
 import com.synesthesia.mobile.ui.theme.SynesthesiaTypography
 import com.synesthesia.mobile.ui.theme.SynesthesiaShapes
@@ -174,73 +176,6 @@ private fun MascotMark(size: androidx.compose.ui.unit.Dp, hairColor: Color, modi
 }
 
 @Composable
-private fun MascotIntro(
-    mascotSize: androidx.compose.ui.unit.Dp,
-    hairColor: Color,
-    eyesClosed: Boolean,
-    eyesAwake: Boolean,
-    scanProgress: Float,
-    modifier: Modifier = Modifier
-) {
-    Box(modifier.size(mascotSize)) {
-        MascotMark(mascotSize, hairColor)
-        if (eyesAwake) {
-            Image(
-                painter = painterResource(R.drawable.mascot_eye_mask),
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize().blur(5.dp),
-                contentScale = ContentScale.Fit,
-                colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Color(0xFFFF263F))
-            )
-            Image(
-                painter = painterResource(R.drawable.mascot_eye_mask),
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Fit,
-                colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Color(0xFFFF334B))
-            )
-        }
-        if (eyesClosed) {
-            androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
-                val w = size.width
-                val h = size.height
-                drawRoundRect(
-                    color = Color.Black,
-                    topLeft = androidx.compose.ui.geometry.Offset(w * .285f, h * .685f),
-                    size = androidx.compose.ui.geometry.Size(w * .47f, h * .17f),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * .035f)
-                )
-                val left = androidx.compose.ui.graphics.Path().apply {
-                    moveTo(w * .315f, h * .725f)
-                    cubicTo(w * .365f, h * .785f, w * .445f, h * .815f, w * .515f, h * .812f)
-                }
-                val right = androidx.compose.ui.graphics.Path().apply {
-                    moveTo(w * .625f, h * .812f)
-                    cubicTo(w * .685f, h * .805f, w * .735f, h * .755f, w * .765f, h * .715f)
-                }
-                drawPath(left, Color.White, style = androidx.compose.ui.graphics.drawscope.Stroke(width = w * .018f, cap = androidx.compose.ui.graphics.StrokeCap.Round))
-                drawPath(right, Color.White, style = androidx.compose.ui.graphics.drawscope.Stroke(width = w * .018f, cap = androidx.compose.ui.graphics.StrokeCap.Round))
-                // Keep the injured eye's slash recognizable while the mascot sleeps.
-                drawLine(Color.Black, androidx.compose.ui.geometry.Offset(w * .704f, h * .785f), androidx.compose.ui.geometry.Offset(w * .735f, h * .748f), strokeWidth = w * .025f)
-            }
-        }
-        if (scanProgress in 0f..1f && scanProgress > 0f && !eyesAwake) {
-            androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
-                val x = size.width * (.20f + .62f * scanProgress)
-                val y = size.height * .765f
-                drawLine(
-                    brush = Brush.horizontalGradient(listOf(Color.Transparent, Color(0xFFFF263F), Color.White, Color(0xFFFF263F), Color.Transparent), startX = x - size.width * .18f, endX = x + size.width * .18f),
-                    start = androidx.compose.ui.geometry.Offset(x - size.width * .18f, y),
-                    end = androidx.compose.ui.geometry.Offset(x + size.width * .18f, y),
-                    strokeWidth = size.width * .035f,
-                    cap = androidx.compose.ui.graphics.StrokeCap.Round
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consumeOpenPlayerRequest: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
@@ -260,35 +195,8 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
     var liquidQueueOpen by remember { mutableStateOf(false) }
     var scanning by remember { mutableStateOf(false) }
     var introVisible by remember { mutableStateOf(true) }
-    var introStarted by remember { mutableStateOf(false) }
-    var introEyesClosed by remember { mutableStateOf(false) }
-    var introEyesAwake by remember { mutableStateOf(false) }
-    var introScanActive by remember { mutableStateOf(false) }
-    var introWordmarkVisible by remember { mutableStateOf(false) }
-    val introScanProgress by animateFloatAsState(
-        targetValue = if (introScanActive) 1f else 0f,
-        animationSpec = tween(durationMillis = 620, easing = androidx.compose.animation.core.LinearEasing),
-        label = "mascot-eye-scan"
-    )
+    var introVideoView by remember { mutableStateOf<VideoView?>(null) }
     var scanMessage by remember { mutableStateOf("Scan your device to find music") }
-    LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(160)
-        introStarted = true
-        kotlinx.coroutines.delay(560)
-        introEyesClosed = true
-        kotlinx.coroutines.delay(520)
-        introScanActive = true
-        kotlinx.coroutines.delay(620)
-        introEyesClosed = false
-        introEyesAwake = true
-        kotlinx.coroutines.delay(220)
-        introWordmarkVisible = true
-        kotlinx.coroutines.delay(820)
-        introEyesAwake = false
-        introScanActive = false
-        kotlinx.coroutines.delay(520)
-        introVisible = false
-    }
     var playCounts by remember { mutableStateOf<Map<Long, Int>>(emptyMap()) }
     var recentIds by remember { mutableStateOf<List<Long>>(emptyList()) }
     var monthlyCounts by remember { mutableStateOf<Map<Long, Int>>(emptyMap()) }
@@ -569,48 +477,42 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                 }
                 if(equalizerOpen) EqualizerSheet(player.audioSessionId, { equalizerOpen=false })
                 if(!hasPermission) PermissionPrompt { launcher.launch(permission) }
-                val introScale by animateFloatAsState(
-                        targetValue = if (introStarted) 1f else .78f,
-                        animationSpec = tween(520, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-                        label = "brand-intro-scale"
-                    )
                 AnimatedVisibility(
                     visible = introVisible,
                     enter = fadeIn(tween(100)),
-                    exit = fadeOut(tween(240)),
+                    exit = fadeOut(tween(260)),
                     modifier = Modifier.fillMaxSize().zIndex(30f)
                 ) {
-                    Box(Modifier.fillMaxSize().background(Ink), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            MascotIntro(
-                                mascotSize = 184.dp,
-                                hairColor = displayedPalette.first,
-                                eyesClosed = introEyesClosed,
-                                eyesAwake = introEyesAwake,
-                                scanProgress = introScanProgress,
-                                modifier = Modifier.graphicsLayer { scaleX = introScale; scaleY = introScale }
-                            )
-
-                            Spacer(Modifier.height(26.dp))
-                            Text(
-                                "SYNESTHESIA",
-                                color = White,
-                                fontSize = 22.sp,
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = 4.sp,
-                                fontFamily = SynesthesiaUrbanist,
-                                modifier = Modifier.graphicsLayer { alpha = if (introWordmarkVisible) 1f else 0f }
-                                )
-                            Spacer(Modifier.height(7.dp))
-                                Text(
-                                "YOUR SOUND. YOUR WORLD.",
-                                color = Muted,
-                                fontSize = 9.sp,
-                                letterSpacing = 2.1.sp,
-                                fontFamily = SynesthesiaDmSans,
-                                    modifier = Modifier.graphicsLayer { alpha = if (introWordmarkVisible) .78f else 0f }
-                                )
+                    AndroidView(
+                        modifier = Modifier.fillMaxSize().background(Color.Black),
+                        factory = { viewContext ->
+                            VideoView(viewContext).apply {
+                                setVideoURI(Uri.parse("android.resource://${viewContext.packageName}/${R.raw.synesthesia_intro}"))
+                                setOnCompletionListener {
+                                    introVisible = false
+                                    introVideoView = null
+                                }
+                                setOnErrorListener { _, _, _ ->
+                                    introVisible = false
+                                    introVideoView = null
+                                    true
+                                }
+                                setOnPreparedListener { mediaPlayer ->
+                                    mediaPlayer.isLooping = false
+                                    start()
+                                }
+                                introVideoView = this
+                            }
+                        },
+                        update = { view ->
+                            if (introVisible && !view.isPlaying) view.start()
                         }
+                    )
+                }
+                DisposableEffect(Unit) {
+                    onDispose {
+                        introVideoView?.stopPlayback()
+                        introVideoView = null
                     }
                 }
             }
