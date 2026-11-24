@@ -509,11 +509,9 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                         }
                     )
                 }
-                DisposableEffect(Unit) {
-                    onDispose {
-                        introVideoView?.stopPlayback()
-                        introVideoView = null
-                    }
+                DisposableEffect(introVideoView) {
+                    val activeVideo = introVideoView
+                    onDispose { activeVideo?.stopPlayback() }
                 }
             }
         }
