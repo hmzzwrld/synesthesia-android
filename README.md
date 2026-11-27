@@ -52,3 +52,9 @@ The GitHub Actions workflow builds `app-debug.apk` with Gradle 8.7, Android Grad
 - Track title, artist, album and artwork URI are attached to each media item for system media metadata.
 
 The notification and lock-screen presentation are rendered by Android from the app's MediaSession metadata; their exact appearance varies by Android version and device manufacturer.
+
+
+## veX brand identity
+
+- The launcher offers cream and dark veX icon variants selectable in Settings → Look & Feel → App Icon.
+- The app label, in-app header and player tagline use veX branding. The Android application ID and package remain stable to preserve existing app identity and local data.
