@@ -540,7 +540,7 @@ private fun IntroVideoOverlay(onFinished: () -> Unit) {
                 setPlayer(introPlayer)
             }
         },
-        update = { view -> if (view.player !== introPlayer) view.player = introPlayer },
+        update = { view -> if (view.player !== introPlayer) view.setPlayer(introPlayer) },
         modifier = Modifier.fillMaxSize().background(Color.Black)
     )
 }
