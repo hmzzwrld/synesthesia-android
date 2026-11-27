@@ -1,7 +1,6 @@
 package com.synesthesia.mobile
 
 import android.Manifest
-import android.app.Activity
 import android.app.PendingIntent
 import android.media.MediaMetadataRetriever
 import android.media.audiofx.Equalizer
@@ -70,14 +69,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsControllerCompat
-import androidx.core.view.WindowInsetsCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.ui.PlayerView
-import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
@@ -87,7 +82,6 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.haze
 import dev.chrisbanes.haze.hazeChild
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.viewinterop.AndroidView
 import com.synesthesia.mobile.ui.theme.SynesthesiaAtmosphere
 import com.synesthesia.mobile.ui.theme.SynesthesiaTypography
 import com.synesthesia.mobile.ui.theme.SynesthesiaShapes
@@ -197,41 +191,6 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
     var equalizerOpen by remember { mutableStateOf(false) }
     var liquidQueueOpen by remember { mutableStateOf(false) }
     var scanning by remember { mutableStateOf(false) }
-    var introVisible by remember { mutableStateOf(true) }
-    // Dedicated video engine; it never shares or modifies the music player.
-    val introPlayer = remember(context) {
-        ExoPlayer.Builder(context).build().apply {
-            repeatMode = Player.REPEAT_MODE_OFF
-            setMediaItem(MediaItem.fromUri(Uri.parse("android.resource://${context.packageName}/${R.raw.synesthesia_intro}")))
-            prepare()
-        }
-    }
-    DisposableEffect(introPlayer) {
-        val listener = object : Player.Listener {
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                if (playbackState == Player.STATE_ENDED) introVisible = false
-            }
-            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                introVisible = false
-            }
-        }
-        introPlayer.addListener(listener)
-        introPlayer.playWhenReady = true
-        onDispose {
-            introPlayer.removeListener(listener)
-            introPlayer.release()
-        }
-    }
-    LaunchedEffect(introVisible) {
-        val activity = context as? Activity
-        val controller = activity?.let { WindowInsetsControllerCompat(it.window, it.window.decorView) }
-        if (introVisible) {
-            controller?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            controller?.hide(WindowInsetsCompat.Type.systemBars())
-        } else {
-            controller?.show(WindowInsetsCompat.Type.systemBars())
-        }
-    }
     var scanMessage by remember { mutableStateOf("Scan your device to find music") }
     var playCounts by remember { mutableStateOf<Map<Long, Int>>(emptyMap()) }
     var recentIds by remember { mutableStateOf<List<Long>>(emptyList()) }
@@ -446,9 +405,9 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                         Row(verticalAlignment=Alignment.CenterVertically, horizontalArrangement=Arrangement.spacedBy(9.dp)) {
                             MascotMark(27.dp, displayedPalette.first)
                             Column {
-                                Text("SYNESTHESIA", color=White, fontSize=17.sp, fontWeight=FontWeight.Black, letterSpacing=3.sp, fontFamily=SynesthesiaUrbanist)
+                                Text("veX", color=White, fontSize=19.sp, fontWeight=FontWeight.Black, letterSpacing=3.sp, fontFamily=SynesthesiaUrbanist)
                                 Row(verticalAlignment=Alignment.CenterVertically) {
-                                    Text("YOUR SOUND.", color=Muted, fontSize=9.sp, letterSpacing=2.sp, fontFamily=SynesthesiaDmSans)
+                                    Text("BEYOND THE SOUND.", color=Muted, fontSize=9.sp, letterSpacing=1.5.sp, fontFamily=SynesthesiaDmSans)
                                     Spacer(Modifier.width(4.dp))
                                     Text("YOUR WORLD.", fontSize=9.sp, letterSpacing=2.sp, fontWeight=FontWeight.SemiBold,
                                         fontFamily=SynesthesiaDmSans,
@@ -513,28 +472,6 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                 }
                 if(equalizerOpen) EqualizerSheet(player.audioSessionId, { equalizerOpen=false })
                 if(!hasPermission) PermissionPrompt { launcher.launch(permission) }
-                AnimatedVisibility(
-                    visible = introVisible,
-                    enter = fadeIn(tween(100)),
-                    exit = fadeOut(tween(260)),
-                    modifier = Modifier.fillMaxSize().zIndex(30f)
-                ) {
-                    AndroidView(
-                        modifier = Modifier.fillMaxSize().background(Color.Black),
-                        factory = { viewContext ->
-                            PlayerView(viewContext).apply {
-                                useController = false
-                                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                                setKeepContentOnPlayerReset(true)
-                                setShutterBackgroundColor(android.graphics.Color.BLACK)
-                                setPlayer(introPlayer)
-                            }
-                        },
-                        update = { view -> if (view.player !== introPlayer) view.setPlayer(introPlayer) },
-                        onRelease = { view -> view.setPlayer(null) }
-                    )
-                }
-
             }
         }
     }
@@ -1151,10 +1088,10 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                                 when(name) {
                                     "Look & Feel" -> {
                                         SettingsCard(lightTheme, "Atmosphere", if(atmosphereEnabled) "Album-reactive background is on" else "Deep dark background is on") {
-                                            Text("Choose whether album colours flow through the app background. Your SYNESTHESIA identity accents stay coloured either way.", color=settingsMuted, fontSize=13.sp)
+                                            Text("Choose whether album colours flow through the app background. Your veX identity accents stay coloured either way.", color=settingsMuted, fontSize=13.sp)
                                             SettingsSwitch("Atmosphere", atmosphereEnabled, lightTheme, setAtmosphereEnabled)
                                         }
-                                        SettingsCard(lightTheme, "Appearance", "SYNESTHESIA liquid glass") {
+                                        SettingsCard(lightTheme, "Appearance", "veX liquid glass") {
                                             Text("Choose your interface theme", color=settingsMuted, fontSize=13.sp)
                                             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background((if (lightTheme) Color(0xFF51465F).copy(.07f) else Color.White.copy(.06f))).padding(4.dp), horizontalArrangement=Arrangement.spacedBy(5.dp)) {
                                                 listOf(false to "Dark", true to "Light").forEach { (light,label) ->
@@ -1319,4 +1256,4 @@ private fun formatDuration(ms: Long): String {
 @Composable private fun SectionHeader(kicker:String,title:String){Row(Modifier.fillMaxWidth().padding(top=3.dp,bottom=7.dp),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.Bottom){Text(kicker,color=Muted,fontSize=9.sp,letterSpacing=1.5.sp);Text(title,color=Lavender,fontSize=10.sp,fontWeight=FontWeight.Bold,letterSpacing=1.sp)}}
 @Composable private fun EmptyCard(message:String){GlassCard(Modifier.fillMaxWidth().padding(bottom=5.dp)){Text(message,color=Muted,fontSize=12.sp,modifier=Modifier.padding(16.dp))}}
 @Composable private fun GlassCard(modifier:Modifier=Modifier,content:@Composable ColumnScope.()->Unit){Column(modifier.glassSurface(RoundedCornerShape(22.dp),isDarkTheme=true).padding(14.dp),content=content)}
-@Composable private fun PermissionPrompt(request:()->Unit){Box(Modifier.fillMaxSize().background(Ink.copy(.96f)).padding(28.dp),contentAlignment=Alignment.Center){Column(horizontalAlignment=Alignment.CenterHorizontally){Icon(Icons.Rounded.LibraryMusic,null,tint=Lavender,modifier=Modifier.size(52.dp));Spacer(Modifier.height(14.dp));Text("Let your music in",color=White,fontSize=22.sp,fontWeight=FontWeight.Bold);Text("SYNESTHESIA needs audio access to find and play music stored on your device. Your files stay on your phone.",color=Muted,fontSize=13.sp);Spacer(Modifier.height(18.dp));Button(request,colors=ButtonDefaults.buttonColors(containerColor=Violet)){Text("Allow music access")}}} }
+@Composable private fun PermissionPrompt(request:()->Unit){Box(Modifier.fillMaxSize().background(Ink.copy(.96f)).padding(28.dp),contentAlignment=Alignment.Center){Column(horizontalAlignment=Alignment.CenterHorizontally){Icon(Icons.Rounded.LibraryMusic,null,tint=Lavender,modifier=Modifier.size(52.dp));Spacer(Modifier.height(14.dp));Text("Let your music in",color=White,fontSize=22.sp,fontWeight=FontWeight.Bold);Text("veX needs audio access to find and play music stored on your device. Your files stay on your phone.",color=Muted,fontSize=13.sp);Spacer(Modifier.height(18.dp));Button(request,colors=ButtonDefaults.buttonColors(containerColor=Violet)){Text("Allow music access")}}} }
