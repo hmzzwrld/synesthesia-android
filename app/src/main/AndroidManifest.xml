@@ -6,7 +6,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <application android:allowBackup="true" android:label="veX" android:supportsRtl="true" android:theme="@style/Theme.SynesthesiaMobile" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher">
+    <application android:allowBackup="true" android:label="veX" android:supportsRtl="true" android:theme="@style/Theme.SynesthesiaMobile" android:icon="@drawable/ic_vex_dark" android:roundIcon="@drawable/ic_vex_dark">
         <service
             android:name=".PlaybackService"
             android:exported="true"
@@ -15,8 +15,12 @@
                 <action android:name="androidx.media3.session.MediaSessionService" />
             </intent-filter>
         </service>
-        <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop" android:theme="@style/Theme.SynesthesiaMobile">
+        <activity android:name=".MainActivity" android:exported="false" android:launchMode="singleTop" android:theme="@style/Theme.SynesthesiaMobile" />
+        <activity-alias android:name=".CreamIconAlias" android:targetActivity=".MainActivity" android:enabled="false" android:exported="true" android:icon="@drawable/ic_vex_cream" android:label="veX">
             <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
-        </activity>
+        </activity-alias>
+        <activity-alias android:name=".DarkIconAlias" android:targetActivity=".MainActivity" android:enabled="true" android:exported="true" android:icon="@drawable/ic_vex_dark" android:label="veX">
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+        </activity-alias>
     </application>
 </manifest>
