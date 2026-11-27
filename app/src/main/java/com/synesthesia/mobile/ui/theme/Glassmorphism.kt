@@ -14,7 +14,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * Shared SYNESTHESIA glass material, based on the website's --liquid-fill,
+ * Shared veX glass material, based on the website's --liquid-fill,
  * --glass-border and --liquid-edge tokens. Android's ordinary Compose layer
  * cannot sample arbitrary sibling content as a backdrop, so this deliberately
  * reproduces the website's visible material layers without claiming true refraction.
