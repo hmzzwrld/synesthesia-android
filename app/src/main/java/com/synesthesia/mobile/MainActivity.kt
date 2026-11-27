@@ -154,25 +154,6 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun MascotMark(size: androidx.compose.ui.unit.Dp, hairColor: Color, modifier: Modifier = Modifier) {
-    Box(modifier.size(size)) {
-        Image(
-            painter = painterResource(R.drawable.mascot_base),
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Fit
-        )
-        Image(
-            painter = painterResource(R.drawable.mascot_hair_mask),
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Fit,
-            colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(hairColor)
-        )
-    }
-}
-
-@Composable
 private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consumeOpenPlayerRequest: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
@@ -403,16 +384,9 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                 Column(Modifier.fillMaxSize().systemBarsPadding().padding(horizontal=16.dp)) {
                     Row(Modifier.fillMaxWidth().padding(top=12.dp,bottom=14.dp), verticalAlignment=Alignment.CenterVertically, horizontalArrangement=Arrangement.SpaceBetween) {
                         Row(verticalAlignment=Alignment.CenterVertically, horizontalArrangement=Arrangement.spacedBy(9.dp)) {
-                            MascotMark(27.dp, displayedPalette.first)
                             Column {
-                                Text("veX", color=White, fontSize=19.sp, fontWeight=FontWeight.Black, letterSpacing=3.sp, fontFamily=SynesthesiaUrbanist)
-                                Row(verticalAlignment=Alignment.CenterVertically) {
-                                    Text("BEYOND THE SOUND.", color=Muted, fontSize=9.sp, letterSpacing=1.5.sp, fontFamily=SynesthesiaDmSans)
-                                    Spacer(Modifier.width(4.dp))
-                                    Text("YOUR WORLD.", fontSize=9.sp, letterSpacing=2.sp, fontWeight=FontWeight.SemiBold,
-                                        fontFamily=SynesthesiaDmSans,
-                                        style=TextStyle(brush=Brush.linearGradient(listOf(displayedPalette.first, displayedPalette.second, displayedPalette.third))))
-                                }
+                                Text("veX", color=White, fontSize=20.sp, fontWeight=FontWeight.Black, letterSpacing=2.5.sp, fontFamily=SynesthesiaUrbanist)
+                                Text("BEYOND THE SOUND.", color=Muted, fontSize=9.sp, letterSpacing=1.5.sp, fontFamily=SynesthesiaDmSans)
                             }
                         }
                         IconButton(onClick={ settingsOpen = true }) {
@@ -468,7 +442,13 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                     }
                 }
                 if(settingsOpen) {
-                    SettingsScreen(tracks, lightTheme, { lightTheme=it; appearancePrefs.edit().putBoolean("light_theme",it).apply() }, { GlassPrefs.enabled=it; appearancePrefs.edit().putBoolean("glass_enabled",it).apply() }, atmosphereEnabled, ::setAtmosphereEnabled, { settingsOpen=false }, { if(hasPermission) scope.launch { scan() } else launcher.launch(permission) })
+                    SettingsScreen(tracks, lightTheme, { lightTheme=it; appearancePrefs.edit().putBoolean("light_theme",it).apply() }, { GlassPrefs.enabled=it; appearancePrefs.edit().putBoolean("glass_enabled",it).apply() }, atmosphereEnabled, ::setAtmosphereEnabled, appearancePrefs.getString("app_icon", "dark") ?: "dark", { icon ->
+                        val cream = ComponentName(this@MainActivity, "com.synesthesia.mobile.CreamIconAlias")
+                        val dark = ComponentName(this@MainActivity, "com.synesthesia.mobile.DarkIconAlias")
+                        packageManager.setComponentEnabledSetting(cream, if(icon=="cream") PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP)
+                        packageManager.setComponentEnabledSetting(dark, if(icon=="dark") PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP)
+                        appearancePrefs.edit().putString("app_icon", icon).apply()
+                    }, { settingsOpen=false }, { if(hasPermission) scope.launch { scan() } else launcher.launch(permission) })
                 }
                 if(equalizerOpen) EqualizerSheet(player.audioSessionId, { equalizerOpen=false })
                 if(!hasPermission) PermissionPrompt { launcher.launch(permission) }
@@ -951,12 +931,7 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                     }
                     Column(horizontalAlignment=Alignment.CenterHorizontally) {
                         Text("NOW PLAYING",color=accent,letterSpacing=2.1.sp,fontSize=10.sp,fontWeight=FontWeight.Bold, fontFamily=SynesthesiaUrbanist)
-                        Row(verticalAlignment=Alignment.CenterVertically) {
-                            Text("YOUR SOUND.",color=playerMuted.copy(.9f),fontSize=9.sp,letterSpacing=1.35.sp,fontFamily=SynesthesiaDmSans)
-                            Spacer(Modifier.width(3.dp))
-                            Text("YOUR WORLD.",fontSize=9.sp,letterSpacing=1.35.sp,fontWeight=FontWeight.SemiBold,fontFamily=SynesthesiaDmSans,
-                                style=TextStyle(brush=Brush.linearGradient(listOf(accent, accentSecondary, palette.third))))
-                        }
+                        Text("BEYOND THE SOUND.",color=playerMuted.copy(.9f),fontSize=9.sp,letterSpacing=1.35.sp,fontFamily=SynesthesiaDmSans)
                     }
                     Box(Modifier.size(36.dp).clip(CircleShape).background((if (lightTheme) Color(0xFF3D344A).copy(.07f) else Color.White.copy(.10f))).border(1.dp,(if (lightTheme) Color(0xFF3D344A).copy(.14f) else Color.White.copy(.16f)),CircleShape).clickable { smartQueueOpen = !smartQueueOpen },contentAlignment=Alignment.Center) {
                         Icon(Icons.Rounded.QueueMusic,"Queue",tint=accent,modifier=Modifier.size(21.dp))
@@ -1048,7 +1023,7 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
     }
 }
 
-@Composable private fun SettingsScreen(tracks: List<LocalTrack>, lightTheme: Boolean, setLightTheme: (Boolean) -> Unit, setGlass: (Boolean) -> Unit, atmosphereEnabled: Boolean, setAtmosphereEnabled: (Boolean) -> Unit, close: () -> Unit, rescan: () -> Unit) {
+@Composable private fun SettingsScreen(tracks: List<LocalTrack>, lightTheme: Boolean, setLightTheme: (Boolean) -> Unit, setGlass: (Boolean) -> Unit, atmosphereEnabled: Boolean, setAtmosphereEnabled: (Boolean) -> Unit, selectedAppIcon: String, setAppIcon: (String) -> Unit, close: () -> Unit, rescan: () -> Unit) {
     var section by remember { mutableStateOf("Look & Feel") }
     val settingsText = if (lightTheme) Color(0xFF211D2A) else White
     val settingsMuted = if (lightTheme) Color(0xFF625B6D) else Muted
@@ -1087,6 +1062,26 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                             Column(Modifier.fillMaxWidth().padding(start=12.dp, end=12.dp, bottom=12.dp), verticalArrangement=Arrangement.spacedBy(10.dp)) {
                                 when(name) {
                                     "Look & Feel" -> {
+                                        SettingsCard(lightTheme, "App Icon", "Choose your veX launcher style") {
+                                            Text("Your choice changes the icon shown on your home screen and app drawer.", color=settingsMuted, fontSize=12.sp)
+                                            Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+                                                listOf("cream" to "Cream", "dark" to "Dark").forEach { (iconKey, label) ->
+                                                    val selected = selectedAppIcon == iconKey
+                                                    Column(Modifier.weight(1f).clip(RoundedCornerShape(18.dp))
+                                                        .background(if(selected) Color(0xFF7655A8).copy(.16f) else settingsCard)
+                                                        .border(1.dp, if(selected) Color(0xFFB99AEF).copy(.65f) else settingsStroke, RoundedCornerShape(18.dp))
+                                                        .clickable { setAppIcon(iconKey) }.padding(9.dp),
+                                                        horizontalAlignment=Alignment.CenterHorizontally) {
+                                                        Image(painterResource(if(iconKey=="cream") R.drawable.ic_vex_cream else R.drawable.ic_vex_dark), contentDescription="$label veX app icon", modifier=Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(15.dp)), contentScale=ContentScale.Fit)
+                                                        Spacer(Modifier.height(8.dp))
+                                                        Row(verticalAlignment=Alignment.CenterVertically) {
+                                                            Text(label, color=settingsText, fontSize=13.sp, fontWeight=FontWeight.SemiBold)
+                                                            if(selected) { Spacer(Modifier.width(5.dp)); Icon(Icons.Rounded.CheckCircle, null, tint=Color(0xFFB99AEF), modifier=Modifier.size(16.dp)) }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
                                         SettingsCard(lightTheme, "Atmosphere", if(atmosphereEnabled) "Album-reactive background is on" else "Deep dark background is on") {
                                             Text("Choose whether album colours flow through the app background. Your veX identity accents stay coloured either way.", color=settingsMuted, fontSize=13.sp)
                                             SettingsSwitch("Atmosphere", atmosphereEnabled, lightTheme, setAtmosphereEnabled)
