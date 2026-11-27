@@ -1025,6 +1025,7 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
 
 @Composable private fun SettingsScreen(tracks: List<LocalTrack>, lightTheme: Boolean, setLightTheme: (Boolean) -> Unit, setGlass: (Boolean) -> Unit, atmosphereEnabled: Boolean, setAtmosphereEnabled: (Boolean) -> Unit, selectedAppIcon: String, setAppIcon: (String) -> Unit, close: () -> Unit, rescan: () -> Unit) {
     var section by remember { mutableStateOf("Look & Feel") }
+    var activeAppIcon by remember { mutableStateOf(selectedAppIcon) }
     val settingsText = if (lightTheme) Color(0xFF211D2A) else White
     val settingsMuted = if (lightTheme) Color(0xFF625B6D) else Muted
     val settingsSurface = if (lightTheme) Color(0xFFF8F5FB) else Color(0xF20A0A14)
@@ -1066,11 +1067,11 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                                             Text("Your choice changes the icon shown on your home screen and app drawer.", color=settingsMuted, fontSize=12.sp)
                                             Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.spacedBy(12.dp)) {
                                                 listOf("cream" to "Cream", "dark" to "Dark").forEach { (iconKey, label) ->
-                                                    val selected = selectedAppIcon == iconKey
+                                                    val selected = activeAppIcon == iconKey
                                                     Column(Modifier.weight(1f).clip(RoundedCornerShape(18.dp))
                                                         .background(if(selected) Color(0xFF7655A8).copy(.16f) else settingsCard)
                                                         .border(1.dp, if(selected) Color(0xFFB99AEF).copy(.65f) else settingsStroke, RoundedCornerShape(18.dp))
-                                                        .clickable { setAppIcon(iconKey) }.padding(9.dp),
+                                                        .clickable { activeAppIcon = iconKey; setAppIcon(iconKey) }.padding(9.dp),
                                                         horizontalAlignment=Alignment.CenterHorizontally) {
                                                         Image(painterResource(if(iconKey=="cream") R.drawable.ic_vex_cream else R.drawable.ic_vex_dark), contentDescription="$label veX app icon", modifier=Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(15.dp)), contentScale=ContentScale.Fit)
                                                         Spacer(Modifier.height(8.dp))
