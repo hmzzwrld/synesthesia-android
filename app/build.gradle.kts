@@ -67,7 +67,6 @@ dependencies {
     // Media3 ExoPlayer for native audio & background playback
     implementation("androidx.media3:media3-exoplayer:1.3.1")
     implementation("androidx.media3:media3-session:1.3.1")
-    implementation("androidx.media3:media3-ui:1.3.1")
 
     // Room Database for local persistence
     implementation("androidx.room:room-runtime:2.6.1")
