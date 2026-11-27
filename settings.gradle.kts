@@ -13,5 +13,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "SynesthesiaMobile"
+rootProject.name = "veX"
 include(":app")
