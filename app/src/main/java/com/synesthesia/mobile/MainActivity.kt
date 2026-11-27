@@ -447,7 +447,7 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                         val cream = ComponentName(context, "com.synesthesia.mobile.CreamIconAlias")
                         val dark = ComponentName(context, "com.synesthesia.mobile.DarkIconAlias")
                         context.packageManager.setComponentEnabledSetting(cream, if(icon=="cream") PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP)
-                        packageManager.setComponentEnabledSetting(dark, if(icon=="dark") PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP)
+                        context.packageManager.setComponentEnabledSetting(dark, if(icon=="dark") PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP)
                         appearancePrefs.edit().putString("app_icon", icon).apply()
                     }, { settingsOpen=false }, { if(hasPermission) scope.launch { scan() } else launcher.launch(permission) })
                 }
