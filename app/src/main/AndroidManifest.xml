@@ -6,7 +6,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <application android:allowBackup="true" android:label="SYNESTHESIA" android:supportsRtl="true" android:theme="@style/Theme.SynesthesiaMobile" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher">
+    <application android:allowBackup="true" android:label="veX" android:supportsRtl="true" android:theme="@style/Theme.SynesthesiaMobile" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher">
         <service
             android:name=".PlaybackService"
             android:exported="true"
