@@ -321,7 +321,7 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                 Box(Modifier.fillMaxSize().haze(state = glassHaze)) {
                 // Website reference: fixed background image, adaptive colour wash, ambient glow and fine mesh.
                 if (GlassPrefs.enabled) Image(
-                    painter = painterResource(id = R.drawable.synesthesia_background),
+                    painter = painterResource(id = R.drawable.vex_background),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize().blur(9.dp),
