@@ -84,7 +84,10 @@ import dev.chrisbanes.haze.haze
 import dev.chrisbanes.haze.hazeChild
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.viewinterop.AndroidView
-import android.widget.VideoView
+import androidx.media3.ui.PlayerView
+import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.synesthesia.mobile.ui.theme.SynesthesiaAtmosphere
 import com.synesthesia.mobile.ui.theme.SynesthesiaTypography
 import com.synesthesia.mobile.ui.theme.SynesthesiaShapes
@@ -468,38 +471,76 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
 @Composable
 private fun IntroVideoOverlay(onFinished: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val videoView = remember { VideoView(context) }
+    val activity = context as? ComponentActivity
+    val lifecycle = activity?.lifecycle
     var finished by remember { mutableStateOf(false) }
+    val introPlayer = remember(context) {
+        ExoPlayer.Builder(context).build().apply {
+            setMediaItem(MediaItem.fromUri(Uri.parse("android.resource://${context.packageName}/${R.raw.vex_intro}")))
+            playWhenReady = false
+            repeatMode = Player.REPEAT_MODE_OFF
+            volume = 1f
+        }
+    }
 
-    DisposableEffect(videoView) {
-        videoView.setVideoURI(Uri.parse("android.resource://${context.packageName}/${R.raw.vex_intro}"))
-        videoView.setOnPreparedListener { mediaPlayer ->
-            mediaPlayer.isLooping = false
-            mediaPlayer.setVolume(0f, 0f)
-            videoView.start()
-        }
-        videoView.setOnCompletionListener {
-            if (!finished) {
-                finished = true
-                onFinished()
+    DisposableEffect(introPlayer, lifecycle) {
+        val window = activity?.window
+        val controller = window?.let { WindowInsetsControllerCompat(it, it.decorView) }
+        controller?.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        controller?.systemBarsBehavior =
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+
+        val listener = object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == Player.STATE_ENDED && !finished) {
+                    finished = true
+                    onFinished()
+                }
+            }
+
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                if (!finished) {
+                    finished = true
+                    onFinished()
+                }
             }
         }
-        videoView.setOnErrorListener { _, _, _ ->
-            if (!finished) {
-                finished = true
-                onFinished()
+        introPlayer.addListener(listener)
+
+        val lifecycleObserver = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> if (!finished) introPlayer.play()
+                Lifecycle.Event.ON_STOP -> introPlayer.pause()
+                else -> Unit
             }
-            true
         }
+        lifecycle?.addObserver(lifecycleObserver)
+
+        introPlayer.prepare()
+        if (lifecycle?.currentState?.isAtLeast(Lifecycle.State.STARTED) != false) {
+            introPlayer.play()
+        }
+
         onDispose {
-            videoView.stopPlayback()
-            videoView.setOnCompletionListener(null)
-            videoView.setOnErrorListener(null)
+            lifecycle?.removeObserver(lifecycleObserver)
+            introPlayer.removeListener(listener)
+            introPlayer.release()
+            controller?.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
         }
     }
 
     AndroidView(
-        factory = { videoView },
+        factory = { viewContext ->
+            PlayerView(viewContext).apply {
+                useController = false
+                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                setKeepContentOnPlayerReset(false)
+                setShutterBackgroundColor(android.graphics.Color.BLACK)
+                setBackgroundColor(android.graphics.Color.BLACK)
+                setPlayer(introPlayer)
+            }
+        },
+        update = { view -> if (view.player !== introPlayer) view.player = introPlayer },
         modifier = Modifier.fillMaxSize().background(Color.Black)
     )
 }
