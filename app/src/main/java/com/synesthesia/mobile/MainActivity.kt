@@ -443,9 +443,9 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                 }
                 if(settingsOpen) {
                     SettingsScreen(tracks, lightTheme, { lightTheme=it; appearancePrefs.edit().putBoolean("light_theme",it).apply() }, { GlassPrefs.enabled=it; appearancePrefs.edit().putBoolean("glass_enabled",it).apply() }, atmosphereEnabled, ::setAtmosphereEnabled, appearancePrefs.getString("app_icon", "dark") ?: "dark", { icon ->
-                        val cream = ComponentName(this@MainActivity, "com.synesthesia.mobile.CreamIconAlias")
-                        val dark = ComponentName(this@MainActivity, "com.synesthesia.mobile.DarkIconAlias")
-                        packageManager.setComponentEnabledSetting(cream, if(icon=="cream") PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP)
+                        val cream = ComponentName(context, "com.synesthesia.mobile.CreamIconAlias")
+                        val dark = ComponentName(context, "com.synesthesia.mobile.DarkIconAlias")
+                        context.packageManager.setComponentEnabledSetting(cream, if(icon=="cream") PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP)
                         packageManager.setComponentEnabledSetting(dark, if(icon=="dark") PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP)
                         appearancePrefs.edit().putString("app_icon", icon).apply()
                     }, { settingsOpen=false }, { if(hasPermission) scope.launch { scan() } else launcher.launch(permission) })
