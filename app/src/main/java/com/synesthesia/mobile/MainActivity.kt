@@ -83,6 +83,8 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.haze
 import dev.chrisbanes.haze.hazeChild
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.viewinterop.AndroidView
+import android.widget.VideoView
 import com.synesthesia.mobile.ui.theme.SynesthesiaAtmosphere
 import com.synesthesia.mobile.ui.theme.SynesthesiaTypography
 import com.synesthesia.mobile.ui.theme.SynesthesiaShapes
@@ -158,6 +160,7 @@ class MainActivity : ComponentActivity() {
 private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consumeOpenPlayerRequest: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
+    var introVisible by remember { mutableStateOf(true) }
     var tracks by remember { mutableStateOf<List<LocalTrack>>(emptyList()) }
     var tab by remember { mutableStateOf(Tab.HOME) }
     var libraryTab by remember { mutableStateOf(LibraryTab.SONGS) }
@@ -456,9 +459,49 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                 }
                 if(equalizerOpen) EqualizerSheet(player.audioSessionId, { equalizerOpen=false })
                 if(!hasPermission) PermissionPrompt { launcher.launch(permission) }
+                if (introVisible) IntroVideoOverlay { introVisible = false }
             }
         }
     }
+}
+
+@Composable
+private fun IntroVideoOverlay(onFinished: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val videoView = remember { VideoView(context) }
+    var finished by remember { mutableStateOf(false) }
+
+    DisposableEffect(videoView) {
+        videoView.setVideoURI(Uri.parse("android.resource://${context.packageName}/${R.raw.vex_intro}"))
+        videoView.setOnPreparedListener { mediaPlayer ->
+            mediaPlayer.isLooping = false
+            mediaPlayer.setVolume(0f, 0f)
+            videoView.start()
+        }
+        videoView.setOnCompletionListener {
+            if (!finished) {
+                finished = true
+                onFinished()
+            }
+        }
+        videoView.setOnErrorListener { _, _, _ ->
+            if (!finished) {
+                finished = true
+                onFinished()
+            }
+            true
+        }
+        onDispose {
+            videoView.stopPlayback()
+            videoView.setOnCompletionListener(null)
+            videoView.setOnErrorListener(null)
+        }
+    }
+
+    AndroidView(
+        factory = { videoView },
+        modifier = Modifier.fillMaxSize().background(Color.Black)
+    )
 }
 
 @Composable private fun HomeScreen(tracks:List<LocalTrack>, recent:List<Long>, counts:Map<Long,Int>, monthly:Map<Long,Int>, selected:LocalTrack?, onPlay:(LocalTrack)->Unit, openLibrary:()->Unit, message:String, lightTheme:Boolean) {
