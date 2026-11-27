@@ -387,7 +387,10 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                         Row(verticalAlignment=Alignment.CenterVertically, horizontalArrangement=Arrangement.spacedBy(9.dp)) {
                             Column {
                                 Text("veX", color=White, fontSize=20.sp, fontWeight=FontWeight.Black, letterSpacing=2.5.sp, fontFamily=SynesthesiaUrbanist)
-                                Text("BEYOND THE SOUND.", color=Muted, fontSize=9.sp, letterSpacing=1.5.sp, fontFamily=SynesthesiaDmSans)
+                                Row(verticalAlignment=Alignment.CenterVertically) {
+                                    Text("BEYOND ", color=Muted, fontSize=9.sp, letterSpacing=1.5.sp, fontFamily=SynesthesiaDmSans)
+                                    Text("THE SOUND.", color=displayedPalette.first, fontSize=9.sp, letterSpacing=1.5.sp, fontFamily=SynesthesiaDmSans)
+                                }
                             }
                         }
                         IconButton(onClick={ settingsOpen = true }) {
@@ -932,7 +935,10 @@ private fun SynesthesiaApp(player: ExoPlayer, openPlayerRequest: Boolean, consum
                     }
                     Column(horizontalAlignment=Alignment.CenterHorizontally) {
                         Text("NOW PLAYING",color=accent,letterSpacing=2.1.sp,fontSize=10.sp,fontWeight=FontWeight.Bold, fontFamily=SynesthesiaUrbanist)
-                        Text("BEYOND THE SOUND.",color=playerMuted.copy(.9f),fontSize=9.sp,letterSpacing=1.35.sp,fontFamily=SynesthesiaDmSans)
+                        Row(verticalAlignment=Alignment.CenterVertically) {
+                            Text("BEYOND ",color=playerMuted.copy(.9f),fontSize=9.sp,letterSpacing=1.35.sp,fontFamily=SynesthesiaDmSans)
+                            Text("THE SOUND.",color=accent,fontSize=9.sp,letterSpacing=1.35.sp,fontFamily=SynesthesiaDmSans)
+                        }
                     }
                     Box(Modifier.size(36.dp).clip(CircleShape).background((if (lightTheme) Color(0xFF3D344A).copy(.07f) else Color.White.copy(.10f))).border(1.dp,(if (lightTheme) Color(0xFF3D344A).copy(.14f) else Color.White.copy(.16f)),CircleShape).clickable { smartQueueOpen = !smartQueueOpen },contentAlignment=Alignment.Center) {
                         Icon(Icons.Rounded.QueueMusic,"Queue",tint=accent,modifier=Modifier.size(21.dp))
