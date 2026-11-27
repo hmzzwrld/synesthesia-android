@@ -1,6 +1,6 @@
-# SYNESTHESIA — Native Android
+# veX — Native Android
 
-A native Kotlin + Jetpack Compose local music player, using the SYNESTHESIA website source as its visual reference. The app is not a WebView or browser wrapper.
+A native Kotlin + Jetpack Compose local music player, using the original website as its visual reference. The app is not a WebView or browser wrapper.
 
 ## Website-to-Android visual port in this update
 
